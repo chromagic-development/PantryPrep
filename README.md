@@ -1,6 +1,6 @@
 # PantryPrep
-Web application for submitting and preparing food pantry orders  
-A Digital Picklist System queues picklist orders for the volunteer/employee team from a client submission page  
+Web application for submitting and preparing food pantry orders providing a digital picklist system  
+to queues picklist orders for the volunteer/employee team from a client submission page.  
 
 FILES  
 ─────  
