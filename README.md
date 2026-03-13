@@ -77,3 +77,8 @@ DEFAULT ITEMS
   OTHER ITEMS:  Diapers (Child) w/ size, Diapers (Adult) w/ size  
 
 ═══════════════════════════════════════════════════════════  
+
+This web application was originally created for:  
+<p align="center">
+  <img src="https://repository-images.githubusercontent.com/1180328768/30b1f8a5-d5a5-4aa6-975d-faa79e792771" />
+</p>
