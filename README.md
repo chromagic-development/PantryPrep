@@ -1,8 +1,8 @@
 # PantryPrep
 Web application for submitting and preparing food pantry orders  
 ═══════════════════════════════════════════════════════════  
-  FOOTPRINTS – Digital Picklist System  
-  Reducing the Impact of Hunger  
+  Digital Picklist System that queues picklist orders for   
+  the volunteer/employee team from a client submission page  
 ═══════════════════════════════════════════════════════════  
 
 FILES  
