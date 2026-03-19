@@ -3,6 +3,7 @@ function getDB() {
     $dbPath = __DIR__ . '/picklist.db';
     $db = new PDO('sqlite:' . $dbPath);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->exec("PRAGMA journal_mode = WAL");
     $db->exec("PRAGMA busy_timeout = 5000"); // wait up to 5 seconds before failing on lock
     $db->exec("PRAGMA foreign_keys = ON");
 
