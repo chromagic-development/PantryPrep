@@ -52,6 +52,22 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        // ── Remove a single item from an order ───────────────────────────
+        case 'remove_order_item':
+            $itemId  = (int)($_POST['item_id']  ?? 0);
+            $orderId = (int)($_POST['order_id'] ?? 0);
+            $db->prepare("DELETE FROM order_items WHERE id = ? AND order_id = ?")->execute([$itemId, $orderId]);
+            $total = $db->prepare("SELECT COUNT(*) FROM order_items WHERE order_id = ?");
+            $total->execute([$orderId]);
+            $done  = $db->prepare("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND completed = 1");
+            $done->execute([$orderId]);
+            echo json_encode([
+                'success'   => true,
+                'total'     => (int)$total->fetchColumn(),
+                'completed' => (int)$done->fetchColumn(),
+            ]);
+            break;
+
         // ── Fetch live order queue for employee dashboard ────────────────
         case 'get_orders':
             $stmt = $db->query(
@@ -93,8 +109,8 @@ try {
             $items = json_decode(file_get_contents('php://input'), true)['items'] ?? [];
             $db->exec("DELETE FROM config_items");
             $stmt = $db->prepare(
-                "INSERT INTO config_items (category, item_name, has_detail, detail_label, active, sort_order)
-                 VALUES (:category, :item_name, :has_detail, :detail_label, :active, :sort_order)"
+                "INSERT INTO config_items (category, item_name, has_detail, detail_label, active, sort_order, unavailable, size_options)
+                 VALUES (:category, :item_name, :has_detail, :detail_label, :active, :sort_order, :unavailable, :size_options)"
             );
             foreach ($items as $i => $item) {
                 $stmt->execute([
@@ -104,6 +120,8 @@ try {
                     ':detail_label'=> $item['detail_label'] ?? '',
                     ':active'      => (int)($item['active'] ?? 1),
                     ':sort_order'  => $i,
+                    ':unavailable' => (int)($item['unavailable'] ?? 0),
+                    ':size_options'=> $item['size_options'] ?? '',
                 ]);
             }
             echo json_encode(['success' => true]);

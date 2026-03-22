@@ -20,7 +20,7 @@ if ($visitor_ip !== $allowedIp) {
 <link rel="icon" type="image/x-icon" href="../favicon.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Footprints – Employee Dashboard</title>
+<title>Footprints – Orders</title>
 <style>
   :root {
     --brown:  #6B4C11;
@@ -265,6 +265,15 @@ if ($visitor_ip !== $allowedIp) {
   .pick-item-detail { font-size: .78rem; color: #666; margin-top: 2px; }
   .pick-item.picked .pick-item-name { text-decoration: line-through; color: #aaa; }
 
+  /* ── Remove item button ──────────────────── */
+  .btn-remove-item {
+    background: transparent; border: none; color: #ccc;
+    font-size: 1rem; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; flex-shrink: 0; line-height: 1;
+    transition: color .15s, background .15s;
+  }
+  .btn-remove-item:hover { color: #C62828; background: #FFF0F0; }
+
   /* ── Notes box ───────────────────────── */
   .notes-box {
     margin: 16px 24px;
@@ -313,7 +322,7 @@ if ($visitor_ip !== $allowedIp) {
 <div class="topbar">
   <div class="brand">
     <img src="../Footprint_logo.jpg" alt="Footprints">
-    <span>Pick Queue</span>
+    <span>Orders Queue</span>
   </div>
   <div class="stats" id="statsBar">
     <div class="stat-pill"><span>Pending: </span><span id="statPending">–</span></div>
@@ -504,6 +513,8 @@ function renderDetail(order) {
                 <div class="pick-item-name">${escHtml(item.item_name)}</div>
                 ${item.item_detail ? `<div class="pick-item-detail">Size/Detail: ${escHtml(item.item_detail)}</div>` : ''}
               </div>
+              <button class="btn-remove-item" title="Remove this item from the order"
+                      onclick="event.stopPropagation(); removeOrderItem(${item.id}, ${order.id}, '${escHtml(item.item_name)}')">✕</button>
             </div>
           `).join('')}
         </div>
@@ -569,6 +580,57 @@ async function toggleItem(itemId, orderId) {
     // Revert on error
     el.classList.toggle('picked', isPicked);
     el.querySelector('.pick-checkbox').textContent = isPicked ? '✓' : '';
+    showToast('⚠ Error: ' + e.message);
+  }
+}
+
+// ── Remove a single item from an order ──────────────────────────────
+async function removeOrderItem(itemId, orderId, itemName) {
+  if (!confirm('Remove "' + itemName + '" from this order?')) return;
+
+  try {
+    const fd = new FormData();
+    fd.append('action', 'remove_order_item');
+    fd.append('item_id', itemId);
+    fd.append('order_id', orderId);
+    const res  = await fetch('../api.php', {method:'POST', body: fd});
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+
+    // Remove the element from the DOM
+    const el = document.getElementById('pi_' + itemId);
+    if (el) el.remove();
+
+    // Update local order data
+    const order = orders.find(o => o.id == orderId);
+    if (order) {
+      order.items = (order.items || []).filter(i => i.id != itemId);
+      order.total_items     = data.total;
+      order.completed_items = data.completed;
+
+      // Update progress bar
+      const total   = data.total;
+      const done    = data.completed;
+      const pct     = total > 0 ? Math.round((done/total)*100) : 0;
+      const allDone = total > 0 && done === total;
+
+      const fill = document.getElementById('progFill_' + orderId);
+      const cnt  = document.getElementById('progCount_' + orderId);
+      const btn  = document.getElementById('btnComplete_' + orderId);
+      if (fill) { fill.style.width = pct + '%'; fill.classList.toggle('done', allDone); }
+      if (cnt)  cnt.textContent = done + ' / ' + total + ' items';
+      if (btn)  btn.disabled = !allDone;
+
+      updateSidebarCard(order);
+
+      // Remove empty category sections
+      document.querySelectorAll('.cat-section').forEach(function(sec) {
+        if (sec.querySelectorAll('.pick-item').length === 0) sec.remove();
+      });
+    }
+
+    showToast('✕ "' + itemName + '" removed from order.');
+  } catch(e) {
     showToast('⚠ Error: ' + e.message);
   }
 }

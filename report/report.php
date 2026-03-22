@@ -21,6 +21,12 @@ $allNames      = $db->query("SELECT DISTINCT name FROM orders ORDER BY name")->f
 $allCategories = $db->query("SELECT DISTINCT category FROM order_items ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
 $allItems      = $db->query("SELECT DISTINCT item_name FROM order_items ORDER BY item_name")->fetchAll(PDO::FETCH_COLUMN);
 
+// ── Build anonymized name map: real name => "Client N" ───────────────────────
+$nameMap = [];
+foreach (array_values($allNames) as $idx => $realName) {
+    $nameMap[$realName] = 'Client ' . ($idx + 1);
+}
+
 // ── Selected filters (arrays from multi-select) ───────────────────────────────
 $selNames  = $_GET['names']      ?? [];
 $selCats   = $_GET['categories'] ?? [];
@@ -82,7 +88,7 @@ $orderCount = (int)$oStmt->fetchColumn();
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Footprints – Item Report</title>
@@ -219,11 +225,11 @@ $orderCount = (int)$oStmt->fetchColumn();
       </div>
 
       <div class="filter-group">
-        <label>Client Name</label>
+        <label>Client</label>
         <select name="names[]" multiple id="sel_names">
           <?php foreach ($allNames as $n): ?>
             <option value="<?= htmlspecialchars($n) ?>" <?= in_array($n, $selNames) ? 'selected' : '' ?>>
-              <?= htmlspecialchars($n) ?>
+              <?= htmlspecialchars($nameMap[$n] ?? $n) ?>
             </option>
           <?php endforeach; ?>
         </select>
@@ -388,8 +394,8 @@ $orderCount = (int)$oStmt->fetchColumn();
           }
         },
         scales: {
-          x: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 } } },
-          y: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 } }, beginAtZero: true }
+          x: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, precision: 0, callback: function(v) { return Number.isInteger(v) ? v : null; } } },
+          y: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, precision: 0, callback: function(v) { return Number.isInteger(v) ? v : null; } }, beginAtZero: true }
         }
       }
     });

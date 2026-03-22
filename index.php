@@ -183,9 +183,14 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   }
   .detail-row.visible { display: flex; align-items: center; gap: 8px; }
   .detail-row label   { font-size: .78rem; color: #666; white-space: nowrap; }
-  .detail-row input   {
+  .detail-row input, .detail-row select {
     border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px;
     font-size: .82rem; width: 120px; background: #fafaf5;
+  }
+  .order-header .count-cell select {
+    border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px;
+    width: 60px; font-size: .95rem; text-align: center; background: #fafaf5;
+    cursor: pointer;
   }
 
   /* ── Notes ──────────────────────────────── */
@@ -221,37 +226,27 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   input.error { border-bottom-color: #c0392b !important; }
   .err-msg    { font-size: .75rem; color: #c0392b; margin-top: 2px; }
 
+  /* ── Unavailable item ───────────────────── */
+  .item-row.unavailable label { color: #aaa; }
+  .unavail-badge {
+    font-size: .7rem; font-weight: 700; color: #fff;
+    background: #6B4C11; border-radius: 4px;
+    padding: 1px 6px; white-space: nowrap; margin-left: 4px;
+  }
+
   /* ── Google Translate Widget ────────────── */
   .translate-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .translate-wrap label { font-size: .75rem; color: #999; white-space: nowrap; }
-  #google_translate_element .goog-te-gadget {
-    margin: 0 !important;
-    font-size: 0 !important;
-    display: flex !important;
-    align-items: center !important;
+  /* Hide the entire Google widget UI — we drive it with our own select */
+  #google_translate_element { display: none !important; }
+  /* Custom native-language select */
+  #custom_lang_select {
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 8px; font-size: .82rem; background: #fff;
+    color: var(--brown); cursor: pointer; outline: none;
+    font-family: Arial, sans-serif;
   }
-  /* Hide the "Powered by Google" logo link and "Translate" text link */
-  #google_translate_element .goog-te-gadget > a,
-  #google_translate_element .goog-logo-link,
-  #google_translate_element .goog-te-gadget img,
-  #google_translate_element .goog-te-gadget > span > a {
-    display: none !important;
-  }
-  /* Style the language select dropdown */
-  #google_translate_element select {
-    border: 1px solid var(--border) !important;
-    border-radius: 5px !important;
-    background: #fff !important;
-    padding: 5px 8px !important;
-    font-size: .82rem !important;
-    color: var(--brown) !important;
-    cursor: pointer !important;
-    outline: none !important;
-    font-family: Arial, sans-serif !important;
-  }
-  #google_translate_element select:focus {
-    border-color: var(--green) !important;
-  }
+  #custom_lang_select:focus { border-color: var(--green); }
 
   /* ── Responsive ─────────────────────────── */
   @media (max-width: 600px) {
@@ -271,7 +266,20 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     <p>Select items below and submit your request</p>
   </div>
   <div class="translate-wrap">
-    <label>🌐 Translate:</label>
+    <label for="custom_lang_select">🌐 Translate:</label>
+    <select id="custom_lang_select" onchange="triggerGoogleTranslate(this.value)" translate="no">
+      <option value="en" translate="no">English</option>
+      <option value="es" translate="no">Español</option>
+      <option value="pt" translate="no">Português</option>
+      <option value="ar" translate="no">العربية</option>
+      <option value="zh-TW" translate="no">廣東話</option>
+      <option value="fr" translate="no">Français</option>
+      <option value="ht" translate="no">Kreyòl ayisyen</option>
+      <option value="so" translate="no">Soomaali</option>
+      <option value="vi" translate="no">Tiếng Việt</option>
+      <option value="km" translate="no">ភាសាខ្មែរ</option>
+      <option value="ru" translate="no">Русский</option>
+    </select>
     <div id="google_translate_element"></div>
   </div>
 </header>
@@ -310,11 +318,19 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     </div>
     <div class="count-cell">
       <label for="adults">Adults</label>
-      <input type="number" id="adults" name="adults" value="1" min="0" max="20">
+      <select id="adults" name="adults">
+        <?php for ($n = 1; $n <= 10; $n++): ?>
+          <option value="<?= $n ?>"<?= $n === 1 ? ' selected' : '' ?>><?= $n ?></option>
+        <?php endfor; ?>
+      </select>
     </div>
     <div class="count-cell">
       <label for="children">Children</label>
-      <input type="number" id="children" name="children" value="0" min="0" max="20">
+      <select id="children" name="children">
+        <?php for ($n = 0; $n <= 10; $n++): ?>
+          <option value="<?= $n ?>"<?= $n === 0 ? ' selected' : '' ?>><?= $n ?></option>
+        <?php endfor; ?>
+      </select>
     </div>
     <div class="week-cell">
       <div class="wk-label">Week</div>
@@ -343,19 +359,32 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   <div class="cat-block">
     <h3><?= htmlspecialchars($catName) ?></h3>
     <?php foreach ($items as $item): ?>
-    <div class="item-row">
+    <div class="item-row<?= !empty($item['unavailable']) ? ' unavailable' : '' ?>">
       <input type="checkbox"
              id="item_<?= $item['id'] ?>"
              name="item_<?= $item['id'] ?>"
              value="1"
              <?= $item['has_detail'] ? 'data-has-detail="1"' : '' ?>
-             data-item-id="<?= $item['id'] ?>">
-      <label for="item_<?= $item['id'] ?>"><?= htmlspecialchars($item['item_name']) ?></label>
+             data-item-id="<?= $item['id'] ?>"
+             <?= !empty($item['unavailable']) ? 'disabled' : '' ?>>
+      <label for="item_<?= $item['id'] ?>"><?= htmlspecialchars($item['item_name']) ?><?= !empty($item['unavailable']) ? ' <span class="unavail-badge">Unavailable</span>' : '' ?></label>
     </div>
     <?php if ($item['has_detail']): ?>
     <div class="detail-row" id="detail_row_<?= $item['id'] ?>">
       <label for="detail_<?= $item['id'] ?>"><?= htmlspecialchars($item['detail_label']) ?>:</label>
+      <?php
+        $sizeOpts = array_filter(array_map('trim', explode(',', $item['size_options'] ?? '')));
+        if (!empty($sizeOpts)):
+      ?>
+      <select id="detail_<?= $item['id'] ?>" name="detail_<?= $item['id'] ?>">
+        <option value="">— Select —</option>
+        <?php foreach ($sizeOpts as $opt): ?>
+          <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php else: ?>
       <input type="text" id="detail_<?= $item['id'] ?>" name="detail_<?= $item['id'] ?>" placeholder="e.g. Small, Medium, Large">
+      <?php endif; ?>
     </div>
     <?php endif; ?>
     <?php endforeach; ?>
@@ -380,11 +409,22 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
 </div><!-- .container -->
 
 <script>
-// Show/hide detail fields when checkbox is toggled
+// Show/hide detail fields when checkbox is toggled; make size field required
 document.querySelectorAll('input[data-has-detail]').forEach(function(cb) {
   cb.addEventListener('change', function() {
     var row = document.getElementById('detail_row_' + this.dataset.itemId);
-    if (row) row.classList.toggle('visible', this.checked);
+    if (!row) return;
+    row.classList.toggle('visible', this.checked);
+    // Make the select or input inside required when checkbox is checked
+    var field = row.querySelector('select, input[type="text"]');
+    if (field) {
+      if (this.checked) {
+        field.setAttribute('required', 'required');
+      } else {
+        field.removeAttribute('required');
+        field.value = field.tagName === 'SELECT' ? '' : '';
+      }
+    }
   });
 });
 
@@ -408,6 +448,22 @@ if (successBanner) {
 <?php endif; ?>
 </script>
 <script type="text/javascript">
+// Clear googtrans cookie on every load so page always starts in English
+(function() {
+  var pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
+  var domains = ['', location.hostname, '.' + location.hostname];
+  var paths   = ['/'];
+  var pagePath = location.pathname.replace(/\/[^/]*$/, '/');
+  if (pagePath && pagePath !== '/') paths.push(pagePath);
+  domains.forEach(function(d) {
+    paths.forEach(function(p) {
+      var base = 'googtrans=; expires=' + pastDate + '; path=' + p;
+      document.cookie = base;
+      if (d) document.cookie = base + '; domain=' + d;
+    });
+  });
+})();
+
 function googleTranslateElementInit() {
   new google.translate.TranslateElement({
     pageLanguage: 'en',
@@ -416,6 +472,25 @@ function googleTranslateElementInit() {
     autoDisplay: false,
     multilanguagePage: true
   }, 'google_translate_element');
+
+  // Once widget renders, watch for changes to keep our select in sync
+  var syncTimer = setInterval(function() {
+    var gtSel = document.querySelector('#google_translate_element select');
+    if (gtSel) {
+      clearInterval(syncTimer);
+      gtSel.addEventListener('change', function() {
+        document.getElementById('custom_lang_select').value = this.value || 'en';
+      });
+    }
+  }, 200);
+}
+
+function triggerGoogleTranslate(lang) {
+  var gtSel = document.querySelector('#google_translate_element select');
+  if (gtSel) {
+    gtSel.value = lang;
+    gtSel.dispatchEvent(new Event('change'));
+  }
 }
 </script>
 <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>

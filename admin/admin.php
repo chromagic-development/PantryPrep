@@ -128,7 +128,7 @@ if (!($_SESSION['admin_auth'] ?? false)) {
   .topbar a { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:7px 14px; border-radius:6px; font-size:.84rem; }
   .topbar a:hover { background:rgba(255,255,255,.35); }
 
-  .container { max-width:760px; margin:30px auto 60px; padding:0 16px; }
+  .container { max-width:1100px; margin:30px auto 60px; padding:0 16px; }
   h1 { font-size:1.3rem; color:var(--brown); margin-bottom:6px; }
   .subtitle { font-size:.84rem; color:#777; margin-bottom:20px; }
 
@@ -174,9 +174,8 @@ if (!($_SESSION['admin_auth'] ?? false)) {
     <span>⚙ Manage Order Items</span>
   </div>
   <div style="display:flex;gap:10px;">
-    <a href="../orders">← Dashboard</a>
-    <a href="../">📋 Order Form</a>
-    <a href="../report/">📊 Report</a>
+    <a href="../orders">← Orders</a>
+    <a href="../" target="_blank" rel="noopener noreferrer">📋 Order Form</a>
     <a href="admin.php?logout=1" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);">🔒 Log Out</a>
   </div>
 </div>
@@ -195,10 +194,12 @@ if (!($_SESSION['admin_auth'] ?? false)) {
         <tr>
           <th style="width:30px;"></th>
           <th style="width:40px;">On</th>
-          <th>Category</th>
-          <th>Item Name</th>
+          <th style="width:120px;">Category</th>
+          <th style="min-width:160px;">Item Name</th>
           <th style="width:80px;">Has Size?</th>
           <th style="width:100px;">Size Label</th>
+          <th style="min-width:160px;">Sizes</th>
+          <th style="width:90px;">Unavailable?</th>
           <th style="width:60px;">Remove</th>
         </tr>
       </thead>
@@ -320,6 +321,15 @@ function renderTable() {
         ${item.has_detail==1 ? `<input type="text" value="${escHtml(item.detail_label||'Size')}" oninput="items[${i}].detail_label=this.value" placeholder="Label">` : '<span style="color:#ccc">—</span>'}
       </td>
       <td>
+        ${item.has_detail==1 ? `<input type="text" value="${escHtml(item.size_options||'')}" oninput="items[${i}].size_options=this.value" placeholder="e.g. Small,Medium,Large" title="Comma-separated list of size options">` : '<span style="color:#ccc">—</span>'}
+      </td>
+      <td style="text-align:center;">
+        <input type="checkbox" title="Check if this item is currently unavailable"
+               ${item.unavailable==1?'checked':''}
+               onchange="items[${i}].unavailable=this.checked?1:0"
+               style="accent-color:#C62828;width:16px;height:16px;">
+      </td>
+      <td>
         <button class="btn btn-red" style="padding:5px 10px;" onclick="removeRow(${i})">✕</button>
       </td>
     </tr>
@@ -327,7 +337,7 @@ function renderTable() {
 }
 
 function addRow() {
-  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', active:1, sort_order:items.length });
+  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', size_options:'', active:1, unavailable:0, sort_order:items.length });
   renderTable();
   // Focus the new row name input
   setTimeout(() => {
