@@ -198,8 +198,8 @@ $orderCount = (int)$oStmt->fetchColumn();
     <span>📊 Item Usage Report</span>
   </div>
   <nav>
-    <a href="../admin/">⚙ Admin</a>
-    <a href="../orders/">← Dashboard</a>
+	<a href="../orders/">← Orders</a>
+    <a href="../admin/">⚙ Manage Items</a>
     <a href="../admin/?logout=1">🔒 Log Out</a>
   </nav>
 </div>
