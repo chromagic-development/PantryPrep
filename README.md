@@ -1,4 +1,4 @@
-# Footprints Food Pantry (PantryPrep) — Digital Picklist System
+PantryPrep — Digital Picklist System
 
 Created by **Bruce Alexander**
 
