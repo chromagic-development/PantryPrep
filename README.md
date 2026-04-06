@@ -75,9 +75,3 @@ This is a web-based food pantry order management system.
 * **IP Restriction:** Access to the order form and employee dashboard can be restricted to a specific IP address in the Admin settings.
 * **Authentication:** The admin login persists for 2 months via cookie. Changing the admin password instantly invalidates all existing sessions.
 * **Privacy:** No personal data is exposed in reports, and the system is designed to be self-hosted for maximum data control.
-
----
-
-## SUPPORT
-
-For issues or questions, contact **Bruce Alexander**.
