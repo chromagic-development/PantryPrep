@@ -1,10 +1,19 @@
 <?php
-session_start();
 require_once '../db.php';
 $db = getDB();
 
-// ── Auth gate (same session as admin.php) ────────────────────────────────────
-if (!($_SESSION['admin_auth'] ?? false)) {
+// ── Auth gate: same persistent cookie as admin.php ───────────────────────────
+function makeAuthToken($password) {
+    return hash('sha256', 'fp_admin_' . $password);
+}
+function isAuthenticated($db) {
+    $s = $db->prepare("SELECT value FROM settings WHERE key = 'admin_password'");
+    $s->execute();
+    $pw = $s->fetchColumn();
+    $cookie = $_COOKIE['fp_admin_auth'] ?? '';
+    return $cookie !== '' && hash_equals(makeAuthToken($pw), $cookie);
+}
+if (!isAuthenticated($db)) {
     header('Location: ../admin/admin.php');
     exit;
 }
@@ -19,7 +28,7 @@ $dateEnd      = $_GET['date_end']   ?? $defaultEnd;
 // ── Load all distinct filter options from DB ─────────────────────────────────
 $allNames      = $db->query("SELECT DISTINCT name FROM orders ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $allCategories = $db->query("SELECT DISTINCT category FROM order_items ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
-$allItems      = $db->query("SELECT DISTINCT item_name FROM order_items ORDER BY item_name")->fetchAll(PDO::FETCH_COLUMN);
+$allItems      = $db->query("SELECT DISTINCT item_name FROM config_items WHERE active = 1 ORDER BY item_name")->fetchAll(PDO::FETCH_COLUMN);
 
 // ── Build anonymized name map: real name => "Client N" ───────────────────────
 $nameMap = [];
@@ -48,7 +57,8 @@ if (!empty($selCats)) {
 }
 if (!empty($selItems)) {
     $placeholders = implode(',', array_map(function($i) { return ":it$i"; }, array_keys($selItems)));
-    $conditions[] = "oi.item_name IN ($placeholders)";
+    // Match via current config name (joined) OR legacy stored name (old rows without config_item_id)
+    $conditions[] = "(COALESCE(ci.item_name, oi.item_name) IN ($placeholders))";
     foreach ($selItems as $i => $v) $params[":it$i"] = $v;
 }
 
@@ -56,14 +66,15 @@ $where = implode(' AND ', $conditions);
 
 $sql = "
     SELECT
-        oi.category,
-        oi.item_name,
+        COALESCE(ci.category, oi.category)   AS category,
+        COALESCE(ci.item_name, oi.item_name) AS item_name,
         COUNT(*) AS quantity
     FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
+    LEFT JOIN config_items ci ON ci.id = oi.config_item_id
     WHERE $where
-    GROUP BY oi.category, oi.item_name
-    ORDER BY oi.category, quantity DESC
+    GROUP BY COALESCE(ci.id, oi.item_name)
+    ORDER BY COALESCE(ci.category, oi.category), quantity DESC
 ";
 
 $stmt = $db->prepare($sql);
@@ -80,6 +91,7 @@ $grandTotal = array_sum(array_column($results, 'quantity'));
 // ── Also fetch order count for header stat ───────────────────────────────────
 $oSql = "SELECT COUNT(DISTINCT o.id) FROM orders o
          JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN config_items ci ON ci.id = oi.config_item_id
          WHERE $where";
 $oStmt = $db->prepare($oSql);
 $oStmt->execute($params);
@@ -394,8 +406,22 @@ $orderCount = (int)$oStmt->fetchColumn();
           }
         },
         scales: {
-          x: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, precision: 0, callback: function(v) { return Number.isInteger(v) ? v : null; } } },
-          y: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, precision: 0, callback: function(v) { return Number.isInteger(v) ? v : null; } }, beginAtZero: true }
+          x: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, callback: function(v) {
+            // When indexAxis='y', x is the value axis — show integers only
+            // When indexAxis='x', x is the label axis — show the label string
+            if (<?= count($results) > 8 ? 'true' : 'false' ?>) {
+              return Number.isInteger(v) ? v : null;
+            }
+            return this.getLabelForValue(v);
+          }}},
+          y: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, callback: function(v) {
+            // When indexAxis='y', y is the label axis — show the label string
+            // When indexAxis='x', y is the value axis — show integers only
+            if (<?= count($results) > 8 ? 'true' : 'false' ?>) {
+              return this.getLabelForValue(v);
+            }
+            return Number.isInteger(v) ? v : null;
+          }}, beginAtZero: true }
         }
       }
     });

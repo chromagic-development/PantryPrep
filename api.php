@@ -52,6 +52,24 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        // ── Duplicate a single item in an order ─────────────────────────
+        case 'duplicate_order_item':
+            $itemId  = (int)($_POST['item_id']  ?? 0);
+            $orderId = (int)($_POST['order_id'] ?? 0);
+            $src = $db->prepare("SELECT category, item_name, item_detail, config_item_id FROM order_items WHERE id = ? AND order_id = ?");
+            $src->execute([$itemId, $orderId]);
+            $srcRow = $src->fetch(PDO::FETCH_ASSOC);
+            if (!$srcRow) { echo json_encode(['success'=>false,'error'=>'Item not found']); break; }
+            $ins = $db->prepare("INSERT INTO order_items (order_id, category, item_name, item_detail, completed, config_item_id) VALUES (?,?,?,?,0,?)");
+            $ins->execute([$orderId, $srcRow['category'], $srcRow['item_name'], $srcRow['item_detail'], $srcRow['config_item_id']]);
+            $newId = (int)$db->lastInsertId();
+            $total = $db->prepare("SELECT COUNT(*) FROM order_items WHERE order_id = ?");
+            $total->execute([$orderId]);
+            $done  = $db->prepare("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND completed = 1");
+            $done->execute([$orderId]);
+            echo json_encode(['success'=>true,'new_id'=>$newId,'total'=>(int)$total->fetchColumn(),'completed'=>(int)$done->fetchColumn()]);
+            break;
+
         // ── Remove a single item from an order ───────────────────────────
         case 'remove_order_item':
             $itemId  = (int)($_POST['item_id']  ?? 0);
@@ -109,19 +127,20 @@ try {
             $items = json_decode(file_get_contents('php://input'), true)['items'] ?? [];
             $db->exec("DELETE FROM config_items");
             $stmt = $db->prepare(
-                "INSERT INTO config_items (category, item_name, has_detail, detail_label, active, sort_order, unavailable, size_options)
-                 VALUES (:category, :item_name, :has_detail, :detail_label, :active, :sort_order, :unavailable, :size_options)"
+                "INSERT INTO config_items (category, item_name, has_detail, detail_label, active, sort_order, unavailable, size_options, family_factor)
+                 VALUES (:category, :item_name, :has_detail, :detail_label, :active, :sort_order, :unavailable, :size_options, :family_factor)"
             );
             foreach ($items as $i => $item) {
                 $stmt->execute([
-                    ':category'    => $item['category'],
-                    ':item_name'   => $item['item_name'],
-                    ':has_detail'  => (int)($item['has_detail'] ?? 0),
-                    ':detail_label'=> $item['detail_label'] ?? '',
-                    ':active'      => (int)($item['active'] ?? 1),
-                    ':sort_order'  => $i,
-                    ':unavailable' => (int)($item['unavailable'] ?? 0),
-                    ':size_options'=> $item['size_options'] ?? '',
+                    ':category'      => $item['category'],
+                    ':item_name'     => $item['item_name'],
+                    ':has_detail'    => (int)($item['has_detail'] ?? 0),
+                    ':detail_label'  => $item['detail_label'] ?? '',
+                    ':active'        => (int)($item['active'] ?? 1),
+                    ':sort_order'    => $i,
+                    ':unavailable'   => (int)($item['unavailable'] ?? 0),
+                    ':size_options'  => $item['size_options'] ?? '',
+                    ':family_factor' => (float)($item['family_factor'] ?? 1.0),
                 ]);
             }
             echo json_encode(['success' => true]);

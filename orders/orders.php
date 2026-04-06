@@ -273,6 +273,13 @@ if ($visitor_ip !== $allowedIp) {
     transition: color .15s, background .15s;
   }
   .btn-remove-item:hover { color: #C62828; background: #FFF0F0; }
+  .btn-duplicate-item {
+    background: transparent; border: none; color: #aaa;
+    font-size: .85rem; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; flex-shrink: 0; line-height: 1;
+    transition: color .15s, background .15s;
+  }
+  .btn-duplicate-item:hover { color: var(--green); background: #F0F8E0; }
 
   /* ── Notes box ───────────────────────── */
   .notes-box {
@@ -329,7 +336,7 @@ if ($visitor_ip !== $allowedIp) {
     <div class="stat-pill"><span>Items Left: </span><span id="statItems">–</span></div>
   </div>
   <div class="actions">
-    <span class="refresh-dot" title="Auto-refreshing every 30s"></span>
+    <span class="refresh-dot" title="Auto-refreshing every 15s"></span>
     <button class="btn-refresh" onclick="loadOrders()">↺ Refresh</button>
     <a href="../admin" class="btn-config">⚙ Manage Items</a>
   </div>
@@ -337,7 +344,6 @@ if ($visitor_ip !== $allowedIp) {
 
 <div class="layout">
 
-  <!-- Sidebar: Order Queue -->
   <div class="sidebar">
     <div class="sidebar-header">
       <span>📋 Order Queue</span>
@@ -348,7 +354,6 @@ if ($visitor_ip !== $allowedIp) {
     </div>
   </div>
 
-  <!-- Main Panel -->
   <div class="main-panel" id="mainPanel">
     <div class="empty-state" id="emptyState">
       <div class="big-icon">📦</div>
@@ -356,8 +361,7 @@ if ($visitor_ip !== $allowedIp) {
       <p>Select an order from the queue to see its picklist, or wait for new orders to arrive.</p>
     </div>
     <div class="order-detail" id="orderDetail">
-      <!-- Populated by JS -->
-    </div>
+      </div>
   </div>
 
 </div>
@@ -367,6 +371,7 @@ if ($visitor_ip !== $allowedIp) {
 <script>
 let orders = [];
 let activeOrderId = null;
+let previousOrdersJson = ''; // Cache the last known state to prevent redraw blinking
 const CAT_ICONS = {
   'DAIRY': '🥛', 'FROZEN ITEMS': '🧊', 'SPECIALS': '☕',
   'DRY GOODS': '🥫', 'OTHER ITEMS': '📦'
@@ -378,15 +383,48 @@ async function loadOrders() {
     const res = await fetch('../api.php?action=get_orders');
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
+    
+    // Check if the server data is actually different from what we are showing
+    const currentOrdersJson = JSON.stringify(data.orders);
+    if (currentOrdersJson === previousOrdersJson) {
+      return; // No actual changes, don't trigger layout-disturbing renders!
+    }
+
+    // New data found. Update cache.
+    previousOrdersJson = currentOrdersJson;
     orders = data.orders;
+
+    // Save scroll positions before redrawing
+    const queueListEl = document.getElementById('queueList');
+    const queueScroll = queueListEl ? queueListEl.scrollTop : 0;
+
+    let itemScroll = 0;
+    let activeItemsEl = null;
+    if (activeOrderId) {
+      activeItemsEl = document.getElementById('itemsContainer_' + activeOrderId);
+      if (activeItemsEl) {
+        itemScroll = activeItemsEl.scrollTop;
+      }
+    }
+
+    // Execute renders
     renderQueue();
     updateStats();
+    
     // Re-render active order if still present
     if (activeOrderId) {
       const still = orders.find(o => o.id == activeOrderId);
       if (still) renderDetail(still);
       else showEmpty();
     }
+
+    // Restore scroll positions after redrawing
+    if (queueListEl) queueListEl.scrollTop = queueScroll;
+    if (activeOrderId && activeItemsEl) {
+      const newItemsEl = document.getElementById('itemsContainer_' + activeOrderId);
+      if (newItemsEl) newItemsEl.scrollTop = itemScroll;
+    }
+
   } catch(e) {
     showToast('⚠ Refresh failed: ' + e.message);
   }
@@ -506,13 +544,15 @@ function renderDetail(order) {
             ${escHtml(cat)}
           </div>
           ${cats[cat].map(item => `
-            <div class="pick-item ${item.completed=='1'?'picked':''}" id="pi_${item.id}"
+            <div class="pick-item ${item.completed=='1'?'picked':''}\" id="pi_${item.id}"
                  onclick="toggleItem(${item.id}, ${order.id})">
               <div class="pick-checkbox">${item.completed=='1' ? '✓' : ''}</div>
               <div class="pick-item-text">
                 <div class="pick-item-name">${escHtml(item.item_name)}</div>
                 ${item.item_detail ? `<div class="pick-item-detail">Size/Detail: ${escHtml(item.item_detail)}</div>` : ''}
               </div>
+              <button class="btn-duplicate-item" title="Duplicate this item in the order"
+                      onclick="event.stopPropagation(); duplicateOrderItem(${item.id}, ${order.id}, '${escHtml(item.item_name)}', '${escHtml(item.item_detail||'')}', '${escHtml(item.category||'')}')">＋</button>
               <button class="btn-remove-item" title="Remove this item from the order"
                       onclick="event.stopPropagation(); removeOrderItem(${item.id}, ${order.id}, '${escHtml(item.item_name)}')">✕</button>
             </div>
@@ -584,10 +624,47 @@ async function toggleItem(itemId, orderId) {
   }
 }
 
+// ── Duplicate a single item in an order ─────────────────────────────
+async function duplicateOrderItem(itemId, orderId, itemName, itemDetail, category) {
+  try {
+    const fd = new FormData();
+    fd.append('action', 'duplicate_order_item');
+    fd.append('item_id', itemId);
+    fd.append('order_id', orderId);
+    const res  = await fetch('../api.php', {method:'POST', body: fd});
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+
+    // Update local order data
+    const order = orders.find(o => o.id == orderId);
+    if (order) {
+      const newItem = { id: data.new_id, category: category, item_name: itemName, item_detail: itemDetail, completed: '0' };
+      order.items = order.items || [];
+      // Insert after the source item
+      const srcIdx = order.items.findIndex(i => i.id == itemId);
+      if (srcIdx >= 0) order.items.splice(srcIdx + 1, 0, newItem);
+      else order.items.push(newItem);
+
+      order.total_items = data.total;
+      order.completed_items = data.completed;
+
+      // Re-render detail panel to show new item
+      renderDetail(order);
+      // Re-mark active sidebar card
+      document.querySelectorAll('.queue-card').forEach(c => c.classList.remove('active'));
+      const card = document.getElementById('qc_' + orderId);
+      if (card) card.classList.add('active');
+      updateSidebarCard(order);
+    }
+
+    showToast('＋ "' + itemName + '" duplicated in order.');
+  } catch(e) {
+    showToast('⚠ Error: ' + e.message);
+  }
+}
+
 // ── Remove a single item from an order ──────────────────────────────
 async function removeOrderItem(itemId, orderId, itemName) {
-  if (!confirm('Remove "' + itemName + '" from this order?')) return;
-
   try {
     const fd = new FormData();
     fd.append('action', 'remove_order_item');
@@ -638,8 +715,6 @@ async function removeOrderItem(itemId, orderId, itemName) {
 // ── Complete an order ───────────────────────────────────────────────
 async function completeOrder(orderId) {
   const order = orders.find(o => o.id == orderId);
-  if (!confirm('Mark order for ' + (order ? order.name : '#'+orderId) + ' as COMPLETE and remove from queue?')) return;
-
   try {
     const fd = new FormData();
     fd.append('action', 'complete_order');
@@ -661,8 +736,6 @@ async function completeOrder(orderId) {
 // ── Delete / cancel an order ────────────────────────────────────────
 async function deleteOrder(orderId) {
   const order = orders.find(o => o.id == orderId);
-  if (!confirm('CANCEL order for ' + (order ? order.name : '#'+orderId) + '? This cannot be undone.')) return;
-
   try {
     const fd = new FormData();
     fd.append('action', 'delete_order');
@@ -724,8 +797,8 @@ function showToast(msg) {
 
 // ── Init ─────────────────────────────────────────────────────────────
 loadOrders();
-// Auto-refresh every 30 seconds
-setInterval(loadOrders, 30000);
+// Auto-refresh every 5 seconds
+setInterval(loadOrders, 5000);
 </script>
 </body>
 </html>

@@ -1,28 +1,27 @@
 <?php
 require_once 'db.php';
+$db = getDB();
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: index.php');
-    exit;
-}
-
-$name     = trim($_POST['name'] ?? '');
-$adults   = max(0, (int)($_POST['adults']   ?? 0));
-$children = max(0, (int)($_POST['children'] ?? 0));
-$notes    = trim($_POST['notes'] ?? '');
-$weekDate = trim($_POST['week_date'] ?? '');
-
-if ($name === '') {
+// ── Validate name ─────────────────────────────────────────────────────────────
+$name = trim($_POST['name'] ?? '');
+if (!$name) {
     header('Location: index.php?error=name');
     exit;
 }
 
-$db = getDB();
+// ── Family size (capped at 5) ─────────────────────────────────────────────────
+$adults   = max(0, (int)($_POST['adults']   ?? 1));
+$children = max(0, (int)($_POST['children'] ?? 0));
+$familySize = min($adults + $children, 5);
+if ($familySize < 1) $familySize = 1; // at least 1
 
-// Insert order
+$weekDate = trim($_POST['week_date'] ?? '');
+$notes    = trim($_POST['notes']     ?? '');
+
+// ── Insert order row ──────────────────────────────────────────────────────────
 $stmt = $db->prepare(
-    "INSERT INTO orders (name, adults, children, week_date, notes)
-     VALUES (:name, :adults, :children, :week_date, :notes)"
+    "INSERT INTO orders (name, adults, children, week_date, notes, status)
+     VALUES (:name, :adults, :children, :week_date, :notes, 'pending')"
 );
 $stmt->execute([
     ':name'      => $name,
@@ -31,32 +30,38 @@ $stmt->execute([
     ':week_date' => $weekDate,
     ':notes'     => $notes,
 ]);
-$orderId = $db->lastInsertId();
+$orderId = (int)$db->lastInsertId();
 
-// Gather selected items
+// ── Load active config items with family_factor ───────────────────────────────
 $configStmt = $db->query(
-    "SELECT * FROM config_items WHERE active = 1 ORDER BY category, sort_order"
+    "SELECT * FROM config_items WHERE active = 1 ORDER BY category, sort_order, id"
 );
 $configItems = $configStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$insertItem = $db->prepare(
-    "INSERT INTO order_items (order_id, category, item_name, item_detail)
-     VALUES (:order_id, :category, :item_name, :item_detail)"
+// ── Insert order items using family_factor ────────────────────────────────────
+$insertStmt = $db->prepare(
+    "INSERT INTO order_items (order_id, category, item_name, item_detail, completed, config_item_id)
+     VALUES (:order_id, :category, :item_name, :item_detail, 0, :config_item_id)"
 );
 
-foreach ($configItems as $cfg) {
-    $key = 'item_' . $cfg['id'];
-    if (!empty($_POST[$key])) {
-        $detail = '';
-        if ($cfg['has_detail']) {
-            $detailKey = 'detail_' . $cfg['id'];
-            $detail = trim($_POST[$detailKey] ?? '');
-        }
-        $insertItem->execute([
-            ':order_id'   => $orderId,
-            ':category'   => $cfg['category'],
-            ':item_name'  => $cfg['item_name'],
-            ':item_detail'=> $detail,
+foreach ($configItems as $item) {
+    $fieldName = 'item_' . $item['id'];
+    if (empty($_POST[$fieldName])) continue;
+
+    $detail = trim($_POST['detail_' . $item['id']] ?? '');
+
+    $factor   = (float)($item['family_factor'] ?? 1.0);
+    if ($factor <= 0) $factor = 1.0;
+    $quantity = (int)ceil($familySize * $factor);
+    if ($quantity < 1) $quantity = 1;
+
+    for ($q = 0; $q < $quantity; $q++) {
+        $insertStmt->execute([
+            ':order_id'      => $orderId,
+            ':category'      => $item['category'],
+            ':item_name'     => $item['item_name'],
+            ':item_detail'   => $detail,
+            ':config_item_id'=> (int)$item['id'],
         ]);
     }
 }

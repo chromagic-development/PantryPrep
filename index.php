@@ -49,6 +49,10 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     --cat-bg: #EEE8D5;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  /* Increased base font size for better readability */
+  html { font-size: 135%; } 
+
   body { font-family: Arial, sans-serif; background: var(--light); color: var(--text); min-height: 100vh; }
 
   /* ── Header ─────────────────────────────── */
@@ -77,7 +81,7 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   .banner p       { font-size:.85rem; }
 
   /* ── Main container ─────────────────────── */
-  .container { max-width: 860px; margin: 24px auto 40px; padding: 0 16px; }
+  .container { max-width: 900px; margin: 24px auto 40px; padding: 0 16px; }
 
   /* ── Form card ──────────────────────────── */
   .card {
@@ -91,7 +95,7 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   /* ── Customer info header ───────────────── */
   .order-header {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: 1fr 110px 110px 140px;
     border-bottom: 2px solid var(--border);
   }
   .order-header .logo-cell {
@@ -116,21 +120,23 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     font-size: 1rem; padding: 2px 4px; width: 100%; outline: none; background: transparent;
   }
   .order-header .name-cell input:focus { border-bottom-color: var(--green); }
+  
   .order-header .count-cell {
-    padding: 10px 14px;
+    padding: 10px 18px;
     display: flex; flex-direction: column; justify-content: center; gap: 6px;
     border-right: 1px solid var(--border);
-    width: 90px;
+    min-width: 100px;
   }
   .order-header .count-cell label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--brown); }
-  .order-header .count-cell input {
+  .order-header .count-cell select {
     border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px;
-    width: 60px; font-size: .95rem; text-align: center; background: #fafaf5;
+    width: 65px; font-size: .95rem; text-align: center; background: #fafaf5;
+    cursor: pointer;
   }
   .week-cell {
     padding: 10px 14px;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
-    min-width: 90px;
+    min-width: 120px;
   }
   .week-cell .wk-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .5px; color: #888; margin-bottom: 4px; }
   .week-cell .wk-date  { font-size: .85rem; font-weight: 700; color: var(--brown); }
@@ -157,49 +163,83 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     padding-bottom: 5px;
     border-bottom: 2px solid var(--cat-bg);
   }
+
+  /* ── Button-style Checkboxes ──────────────────────────── */
   .item-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 7px;
-    padding: 4px 0;
+    display: block;
+    margin-bottom: 10px;
   }
+  
+  /* Visually hide the checkbox but keep it keyboard accessible */
   .item-row input[type="checkbox"] {
-    width: 17px; height: 17px;
-    accent-color: var(--green);
-    margin-top: 2px;
-    cursor: pointer;
-    flex-shrink: 0;
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
   }
+
+  /* Style the label as a large, touch-friendly button */
   .item-row label {
-    font-size: .88rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 14px;
+    background-color: #fff;
+    border: 2px solid var(--border);
+    border-radius: 8px;
     cursor: pointer;
-    line-height: 1.3;
-    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    transition: all 0.2s ease;
+    text-align: center;
+    min-height: 50px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
+
+  .item-row label:hover {
+    border-color: var(--green);
+    background-color: #fafaf5;
+  }
+
+  /* When checkbox is checked, style label as active */
+  .item-row input[type="checkbox"]:checked + label {
+    background-color: var(--green);
+    border-color: var(--green);
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(139, 175, 58, 0.3);
+  }
+
+  /* Accessibility focus ring */
+  .item-row input[type="checkbox"]:focus + label {
+    outline: 2px solid var(--brown);
+    outline-offset: 2px;
+  }
+
+  /* Styling for disabled/unavailable items */
+  .item-row.unavailable label {
+    background-color: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .item-row.unavailable label:hover {
+    border-color: #e0e0e0;
+    background-color: #f0f0f0;
+  }
+
   .detail-row {
-    margin: 3px 0 8px 25px;
+    margin: 6px 0 12px 10px;
     display: none;
   }
   .detail-row.visible { display: flex; align-items: center; gap: 8px; }
   .detail-row label   { font-size: .78rem; color: #666; white-space: nowrap; }
   .detail-row input, .detail-row select {
     border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px;
-    font-size: .82rem; width: 120px; background: #fafaf5;
-  }
-  .order-header .count-cell select {
-    border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px;
-    width: 60px; font-size: .95rem; text-align: center; background: #fafaf5;
-    cursor: pointer;
-  }
-
-  /* ── Notes ──────────────────────────────── */
-  .notes-row { padding: 14px 20px; border-top: 1px solid var(--border); }
-  .notes-row label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--brown); display: block; margin-bottom: 6px; }
-  .notes-row textarea {
-    width: 100%; border: 1px solid var(--border); border-radius: 6px;
-    padding: 8px 10px; font-size: .88rem; resize: vertical; min-height: 56px;
-    background: #fafaf5; font-family: inherit;
+    font-size: .82rem; width: 130px; background: #fafaf5;
   }
 
   /* ── Submit row ─────────────────────────── */
@@ -215,19 +255,18 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   }
   .submit-row .helper { font-size: .8rem; color: #666; }
   .btn-submit {
-    background: var(--brown); color: #fff;
-    border: none; border-radius: 7px; padding: 11px 32px;
-    font-size: 1rem; font-weight: 700; cursor: pointer; letter-spacing: .3px;
-    transition: background .2s;
+    background: #8BAF3A; color: #fff;
+    border: none; border-radius: 7px; padding: 16px 32px;
+    font-size: 1.15rem; font-weight: 700; cursor: pointer; letter-spacing: .3px;
+    transition: background .2s; width: 100%;
   }
-  .btn-submit:hover { background: #8B6420; }
+  .btn-submit:hover { background: #6F9430; }
 
   /* ── Error state ────────────────────────── */
   input.error { border-bottom-color: #c0392b !important; }
   .err-msg    { font-size: .75rem; color: #c0392b; margin-top: 2px; }
 
   /* ── Unavailable item ───────────────────── */
-  .item-row.unavailable label { color: #aaa; }
   .unavail-badge {
     font-size: .7rem; font-weight: 700; color: #fff;
     background: #6B4C11; border-radius: 4px;
@@ -237,9 +276,7 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   /* ── Google Translate Widget ────────────── */
   .translate-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .translate-wrap label { font-size: .75rem; color: #999; white-space: nowrap; }
-  /* Hide the entire Google widget UI — we drive it with our own select */
   #google_translate_element { display: none !important; }
-  /* Custom native-language select */
   #custom_lang_select {
     border: 1px solid var(--border); border-radius: 5px;
     padding: 5px 8px; font-size: .82rem; background: #fff;
@@ -250,8 +287,14 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
 
   /* ── Responsive ─────────────────────────── */
   @media (max-width: 600px) {
-    .order-header { grid-template-columns: 1fr 1fr; }
+    .order-header { 
+      grid-template-columns: 1fr; /* Stacks header cells on mobile to ensure space */
+    }
     .order-header .logo-cell { display: none; }
+    .order-header .name-cell, .order-header .count-cell, .order-header .week-cell {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
     .items-grid { grid-template-columns: 1fr; }
     .cat-block { border-right: none; }
   }
@@ -263,7 +306,7 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   <img src="Footprint_logo.jpg" alt="Footprints Logo">
   <div class="header-text">
     <h1>Food Pantry Order Form</h1>
-    <p>Select items below and submit your request</p>
+    <p>Select items and tap DONE</p>
   </div>
   <div class="translate-wrap">
     <label for="custom_lang_select">🌐 Translate:</label>
@@ -309,17 +352,20 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
 
 <div class="card">
 
-  <!-- Customer Info Header -->
+  <div style="padding: 18px 20px; background: var(--cat-bg); border-bottom: 2px solid var(--border);">
+    <button type="submit" class="btn-submit">📋 DONE</button>
+  </div>
+
   <div class="order-header">
     <div class="name-cell">
-      <label for="cust_name">Name</label>
-      <input type="text" id="cust_name" name="name" placeholder="First Name Only" class="<?= $errName ? 'error' : '' ?>" required autocomplete="name">
+      <label for="cust_name">First Name</label>
+      <input type="text" id="cust_name" name="name" placeholder="First Name Only" class="<?= $errName ? 'error' : '' ?>" required autocomplete="name" onfocus="this.placeholder='Use Keyboard Below'" onblur="this.placeholder='First Name Only'">
       <?php if ($errName): ?><div class="err-msg">Name is required</div><?php endif; ?>
     </div>
     <div class="count-cell">
       <label for="adults">Adults</label>
       <select id="adults" name="adults">
-        <?php for ($n = 1; $n <= 10; $n++): ?>
+        <?php for ($n = 1; $n <= 6; $n++): ?>
           <option value="<?= $n ?>"<?= $n === 1 ? ' selected' : '' ?>><?= $n ?></option>
         <?php endfor; ?>
       </select>
@@ -327,7 +373,7 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     <div class="count-cell">
       <label for="children">Children</label>
       <select id="children" name="children">
-        <?php for ($n = 0; $n <= 10; $n++): ?>
+        <?php for ($n = 0; $n <= 6; $n++): ?>
           <option value="<?= $n ?>"<?= $n === 0 ? ' selected' : '' ?>><?= $n ?></option>
         <?php endfor; ?>
       </select>
@@ -338,7 +384,6 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
     </div>
   </div>
 
-  <!-- Item Categories Grid -->
   <div class="items-grid">
   <?php
   // Render in desired column order: left col then right col
@@ -392,23 +437,12 @@ $weekLabel = $weekStart . ' - ' . $weekEnd;
   <?php endforeach; ?>
   </div>
 
-  <!-- Notes -->
-  <div class="notes-row">
-    <label for="notes">Special Notes / Allergies</label>
-    <textarea id="notes" name="notes" placeholder="Any special requests, dietary restrictions, or notes..."></textarea>
+  <div class="submit-row" style="flex-direction:column; align-items:stretch;">
+    <button type="submit" class="btn-submit" id="submitBtn">📋 DONE</button>
   </div>
 
-  <!-- Submit -->
-  <div class="submit-row">
-    <span class="helper">All selections are optional. At least one item must be checked.</span>
-    <button type="submit" class="btn-submit" id="submitBtn">📋 Submit Order</button>
-  </div>
-
-</div><!-- .card -->
-</form>
-</div><!-- .container -->
-
-<script>
+</div></form>
+</div><script>
 // Show/hide detail fields when checkbox is toggled; make size field required
 document.querySelectorAll('input[data-has-detail]').forEach(function(cb) {
   cb.addEventListener('change', function() {
@@ -448,22 +482,6 @@ if (successBanner) {
 <?php endif; ?>
 </script>
 <script type="text/javascript">
-// Clear googtrans cookie on every load so page always starts in English
-(function() {
-  var pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
-  var domains = ['', location.hostname, '.' + location.hostname];
-  var paths   = ['/'];
-  var pagePath = location.pathname.replace(/\/[^/]*$/, '/');
-  if (pagePath && pagePath !== '/') paths.push(pagePath);
-  domains.forEach(function(d) {
-    paths.forEach(function(p) {
-      var base = 'googtrans=; expires=' + pastDate + '; path=' + p;
-      document.cookie = base;
-      if (d) document.cookie = base + '; domain=' + d;
-    });
-  });
-})();
-
 function googleTranslateElementInit() {
   new google.translate.TranslateElement({
     pageLanguage: 'en',
@@ -473,19 +491,35 @@ function googleTranslateElementInit() {
     multilanguagePage: true
   }, 'google_translate_element');
 
-  // Once widget renders, watch for changes to keep our select in sync
-  var syncTimer = setInterval(function() {
+  // Once the widget renders, restore saved language and keep custom select in sync
+  var initTimer = setInterval(function() {
     var gtSel = document.querySelector('#google_translate_element select');
-    if (gtSel) {
-      clearInterval(syncTimer);
-      gtSel.addEventListener('change', function() {
-        document.getElementById('custom_lang_select').value = this.value || 'en';
-      });
+    if (!gtSel) return;
+    clearInterval(initTimer);
+
+    // Restore previously selected language from localStorage
+    var saved = localStorage.getItem('fp_lang');
+    if (saved && saved !== 'en') {
+      document.getElementById('custom_lang_select').value = saved;
+      gtSel.value = saved;
+      gtSel.dispatchEvent(new Event('change'));
     }
+
+    // Keep custom select in sync when Google widget changes
+    gtSel.addEventListener('change', function() {
+      document.getElementById('custom_lang_select').value = this.value || 'en';
+    });
   }, 200);
 }
 
 function triggerGoogleTranslate(lang) {
+  // Save selection to localStorage so it survives page reloads/redirects
+  if (lang) {
+    localStorage.setItem('fp_lang', lang);
+  }
+  if (lang === 'en') {
+    localStorage.removeItem('fp_lang');
+  }
   var gtSel = document.querySelector('#google_translate_element select');
   if (gtSel) {
     gtSel.value = lang;

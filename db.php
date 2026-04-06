@@ -9,6 +9,8 @@ function getDB() {
     // Migrate: add unavailable column if it doesn't exist yet
     try { $db->exec("ALTER TABLE config_items ADD COLUMN unavailable INTEGER DEFAULT 0"); } catch (Exception $e) {}
     try { $db->exec("ALTER TABLE config_items ADD COLUMN size_options TEXT DEFAULT ''"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE config_items ADD COLUMN family_factor REAL DEFAULT 1.0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE order_items ADD COLUMN config_item_id INTEGER DEFAULT NULL"); } catch (Exception $e) {}
 
     $db->exec("CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

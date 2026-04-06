@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once '../db.php';
 $db = getDB();
 
@@ -23,10 +22,47 @@ function getSetting($db, $key) {
 $adminPassword = getSetting($db, 'admin_password');
 $allowedIp     = getSetting($db, 'allowed_ip');
 
+// ── Persistent auth cookie (2 months) ────────────────────────────────────────
+// Uses header() directly for maximum PHP/server compatibility.
+// Token is a SHA-256 hash of the password — auto-invalidates on password change.
+define('AUTH_COOKIE', 'fp_admin_auth');
+$twoMonths = 60 * 60 * 24 * 60;
+
+function makeAuthToken($password) {
+    return hash('sha256', 'fp_admin_' . $password);
+}
+
+function setAuthCookie($password, $duration) {
+    $token   = makeAuthToken($password);
+    $expires = gmdate('D, d M Y H:i:s T', time() + $duration);
+    header('Set-Cookie: ' . AUTH_COOKIE . '=' . $token
+           . '; Expires=' . $expires
+           . '; Max-Age=' . $duration
+           . '; Path=/'
+           . '; HttpOnly'
+           . '; SameSite=Lax', false);
+    $_COOKIE[AUTH_COOKIE] = $token;
+}
+
+function clearAuthCookie() {
+    header('Set-Cookie: ' . AUTH_COOKIE . '='
+           . '; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+           . '; Max-Age=0'
+           . '; Path=/'
+           . '; HttpOnly'
+           . '; SameSite=Lax', false);
+    unset($_COOKIE[AUTH_COOKIE]);
+}
+
+function isAuthenticated($password) {
+    $cookie = $_COOKIE[AUTH_COOKIE] ?? '';
+    return $cookie !== '' && hash_equals(makeAuthToken($password), $cookie);
+}
+
 // Handle login form submission
 if (isset($_POST['action']) && $_POST['action'] === 'login') {
     if ($_POST['password'] === $adminPassword) {
-        $_SESSION['admin_auth'] = true;
+        setAuthCookie($adminPassword, $twoMonths);
     } else {
         $loginError = 'Incorrect password.';
     }
@@ -34,13 +70,18 @@ if (isset($_POST['action']) && $_POST['action'] === 'login') {
 
 // Handle logout
 if (isset($_GET['logout'])) {
-    session_destroy();
+    clearAuthCookie();
     header('Location: admin.php');
     exit;
 }
 
+// Refresh cookie expiry on each authenticated visit
+if (isAuthenticated($adminPassword)) {
+    setAuthCookie($adminPassword, $twoMonths);
+}
+
 // Handle settings saves (must be authenticated)
-if ($_SESSION['admin_auth'] ?? false) {
+if (isAuthenticated($adminPassword)) {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'save_ip') {
             $ip = trim($_POST['allowed_ip'] ?? '');
@@ -64,10 +105,11 @@ if ($_SESSION['admin_auth'] ?? false) {
 }
 
 // Show login wall if not authenticated
-if (!($_SESSION['admin_auth'] ?? false)) {
+if (!isAuthenticated($adminPassword)) {
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Footprints – Admin Login</title>
@@ -164,6 +206,27 @@ if (!($_SESSION['admin_auth'] ?? false)) {
 
   .toast { position:fixed; bottom:24px; right:24px; background:#222; color:#fff; padding:12px 20px; border-radius:8px; font-size:.88rem; font-weight:600; transform:translateY(80px); opacity:0; transition:all .3s; pointer-events:none; z-index:999; }
   .toast.show { transform:translateY(0); opacity:1; }
+
+  /* ── Password confirm modal ─────────────── */
+  .pw-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.45); z-index:1000;
+    align-items:center; justify-content:center;
+  }
+  .pw-overlay.open { display:flex; }
+  .pw-modal {
+    background:#fff; border-radius:10px; padding:28px 32px;
+    box-shadow:0 8px 32px rgba(0,0,0,.2); width:100%; max-width:340px;
+  }
+  .pw-modal h3 { font-size:1rem; color:var(--brown); margin-bottom:6px; }
+  .pw-modal p  { font-size:.82rem; color:#666; margin-bottom:16px; }
+  .pw-modal input[type="password"] {
+    width:100%; border:1px solid var(--border); border-radius:6px;
+    padding:9px 12px; font-size:.95rem; margin-bottom:6px; background:#fafaf5;
+  }
+  .pw-modal input[type="password"]:focus { outline:none; border-color:var(--green); }
+  .pw-modal .pw-error { color:#C62828; font-size:.78rem; min-height:18px; margin-bottom:10px; }
+  .pw-modal .pw-btns { display:flex; gap:10px; justify-content:flex-end; }
 </style>
 </head>
 <body>
@@ -200,6 +263,7 @@ if (!($_SESSION['admin_auth'] ?? false)) {
           <th style="width:80px;">Has Size?</th>
           <th style="width:100px;">Size Label</th>
           <th style="min-width:160px;">Sizes</th>
+          <th style="width:90px;">Family Factor</th>
           <th style="width:90px;">Unavailable?</th>
           <th style="width:60px;">Remove</th>
         </tr>
@@ -282,12 +346,70 @@ if (!($_SESSION['admin_auth'] ?? false)) {
   </div>
 </div>
 
+<!-- ── Password Confirmation Modal ── -->
+<div class="pw-overlay" id="pwOverlay">
+  <div class="pw-modal">
+    <h3 id="pwModalTitle">Confirm Action</h3>
+    <p id="pwModalDesc">Enter the admin password to proceed.</p>
+    <input type="password" id="pwModalInput"
+           autocomplete="new-password"
+           placeholder="Admin password"
+           onkeydown="if(event.key==='Enter')pwModalConfirm()">
+    <div class="pw-error" id="pwModalError"></div>
+    <div class="pw-btns">
+      <button class="btn btn-outline" onclick="pwModalCancel()">Cancel</button>
+      <button class="btn btn-brown" onclick="pwModalConfirm()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const CATS = ['DAIRY','DRY GOODS','FROZEN ITEMS','SPECIALS','OTHER ITEMS'];
 let items = [];
 let dragSrc = null;
+
+// ── Password modal ──────────────────────────────────────────────────
+const ADMIN_PW = <?= json_encode($adminPassword) ?>;
+let pwModalCallback = null;
+let pwModalRevertCallback = null;
+
+function requirePassword(title, desc, onConfirm, onCancel) {
+  document.getElementById('pwModalTitle').textContent = title;
+  document.getElementById('pwModalDesc').textContent  = desc;
+  document.getElementById('pwModalError').textContent = '';
+  document.getElementById('pwModalInput').value       = '';
+  pwModalCallback       = onConfirm;
+  pwModalRevertCallback = onCancel || null;
+  document.getElementById('pwOverlay').classList.add('open');
+  setTimeout(function() { document.getElementById('pwModalInput').focus(); }, 50);
+}
+
+function pwModalConfirm() {
+  var entered = document.getElementById('pwModalInput').value;
+  if (entered !== ADMIN_PW) {
+    document.getElementById('pwModalError').textContent = '✗ Incorrect password.';
+    document.getElementById('pwModalInput').value = '';
+    document.getElementById('pwModalInput').focus();
+    return;
+  }
+  document.getElementById('pwOverlay').classList.remove('open');
+  document.getElementById('pwModalInput').value = '';
+  if (pwModalCallback) { pwModalCallback(); pwModalCallback = null; }
+}
+
+function pwModalCancel() {
+  document.getElementById('pwOverlay').classList.remove('open');
+  document.getElementById('pwModalInput').value = '';
+  if (pwModalRevertCallback) { pwModalRevertCallback(); pwModalRevertCallback = null; }
+  pwModalCallback = null;
+}
+
+// Close on overlay background click
+document.getElementById('pwOverlay').addEventListener('click', function(e) {
+  if (e.target === this) pwModalCancel();
+});
 
 async function loadItems() {
   const res  = await fetch('../api.php?action=get_config');
@@ -309,11 +431,16 @@ function renderTable() {
         </span>
       </td>
       <td>
-        <select onchange="items[${i}].category=this.value">
+        <select data-row="${i}" data-field="category"
+                onchange="confirmFieldChange(this, ${i}, 'category')"
+                onfocus="this.dataset.prev=this.value">
           ${CATS.map(c => `<option value="${c}" ${c===item.category?'selected':''}>${c}</option>`).join('')}
         </select>
       </td>
-      <td><input type="text" value="${escHtml(item.item_name)}" oninput="items[${i}].item_name=this.value" placeholder="Item name"></td>
+      <td><input type="text" value="${escHtml(item.item_name)}"
+                 onfocus="this.dataset.prev=this.value"
+                 onchange="confirmFieldChange(this, ${i}, 'item_name')"
+                 placeholder="Item name"></td>
       <td style="text-align:center;">
         <input type="checkbox" ${item.has_detail==1?'checked':''}
                onchange="items[${i}].has_detail=this.checked?1:0; renderTable()">
@@ -323,6 +450,13 @@ function renderTable() {
       </td>
       <td>
         ${item.has_detail==1 ? `<input type="text" value="${escHtml(item.size_options||'')}" oninput="items[${i}].size_options=this.value" placeholder="e.g. Small,Medium,Large" title="Comma-separated list of size options">` : '<span style="color:#ccc">—</span>'}
+      </td>
+      <td>
+        <input type="number" value="${parseFloat(item.family_factor||1).toFixed(2)}"
+               min="0.01" step="0.01"
+               title="Multiply family size (max 5) by this factor then round up to get item quantity"
+               oninput="items[${i}].family_factor=parseFloat(this.value)||1"
+               style="width:70px;text-align:center;">
       </td>
       <td style="text-align:center;">
         <input type="checkbox" title="Check if this item is currently unavailable"
@@ -338,7 +472,7 @@ function renderTable() {
 }
 
 function addRow() {
-  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', size_options:'', active:1, unavailable:0, sort_order:items.length });
+  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', size_options:'', family_factor:0.10, active:1, unavailable:0, sort_order:items.length, isNew:true });
   renderTable();
   // Focus the new row name input
   setTimeout(() => {
@@ -348,10 +482,43 @@ function addRow() {
   }, 50);
 }
 
+function confirmFieldChange(el, i, field) {
+  var newVal  = el.value;
+  var prevVal = el.dataset.prev !== undefined ? el.dataset.prev : el.defaultValue;
+  if (newVal === prevVal) return;
+
+  // New rows (not yet saved) don't require password approval
+  if (items[i] && items[i].isNew) {
+    if (field === 'category')  items[i].category  = newVal;
+    if (field === 'item_name') items[i].item_name = newVal;
+    el.dataset.prev = newVal;
+    return;
+  }
+
+  var label = field === 'category' ? 'Category' : 'Item Name';
+  requirePassword(
+    'Confirm Change',
+    'Enter the admin password to change the ' + label + ' field.',
+    function() {
+      if (field === 'category')  items[i].category  = newVal;
+      if (field === 'item_name') items[i].item_name = newVal;
+      el.dataset.prev = newVal;
+    },
+    function() {
+      el.value = prevVal;
+    }
+  );
+}
+
 function removeRow(i) {
-  if (!confirm('Remove "'+(items[i].item_name||'this item')+'"?')) return;
-  items.splice(i, 1);
-  renderTable();
+  requirePassword(
+    'Confirm Remove',
+    'Enter the admin password to remove "' + (items[i].item_name || 'this item') + '".',
+    function() {
+      items.splice(i, 1);
+      renderTable();
+    }
+  );
 }
 
 function toggleActive(i) {
