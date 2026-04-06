@@ -1,81 +1,83 @@
-# PantryPrep
-Web application for submitting and preparing food pantry orders providing a digital picklist system  
-to queue picklist orders for a volunteer/employee team from a client submission page.  
+# Footprints Food Pantry (PantryPrep) — Digital Picklist System
 
-FILES  
-─────  
-  index.php        → Customer order form (public-facing)  
-  employee.php     → Employee pick queue dashboard  
-  admin.php        → Admin: configure order form items  
-  submit_order.php → Form submission handler (POST target)  
-  api.php          → AJAX API for employee dashboard  
-  db.php           → SQLite database setup & connection  
-  picklist.db      → Auto-created SQLite database (on first run)  
+Created by **Bruce Alexander**
 
-REQUIREMENTS  
-────────────  
-  • PHP 7.4+ with PDO and pdo_sqlite extensions enabled  
-  • A web server (Apache, Nginx, or PHP's built-in server)  
-  • Write permissions on the folder (for SQLite database)  
+---
 
-QUICK START (Local Testing)  
-────────────────────────────  
-  1. Unzip all files into a folder, e.g. /var/www/html/footprints/  
-  2. Make sure the folder is writable:  
-       chmod 755 /var/www/html/footprints/  
-  3. Open your browser:  
-       http://localhost/footprints/index.php       ← Customer Form  
-       http://localhost/footprints/employee.php    ← Employee Dashboard  
-       http://localhost/footprints/admin.php       ← Manage Items  
+## OVERVIEW
 
-  OR run PHP's built-in server:  
-       cd /path/to/footprints  
-       php -S localhost:8080  
-       Then visit http://localhost:8080/  
+This is a web-based food pantry order management system.
+* **Customer Interaction:** Customers submit orders through an online form.
+* **Staff Workflow:** Staff pick items from a live queue dashboard.
+* **Administration:** Administrators configure available items and view usage reports.
+* **Database:** The application is self-contained and requires no external database server—it uses SQLite, which stores all data in a single local file (`picklist.db`).
 
-PRODUCTION SETUP  
-────────────────  
-  • Place files inside your web root (public_html, www, htdocs, etc.)  
-  • Ensure the directory is writable by the web server user  
-  • Optionally move picklist.db OUTSIDE the web root for security,  
-    then update the $dbPath in db.php accordingly  
-  • Consider adding HTTP Basic Auth to employee.php and admin.php  
+---
 
-HOW IT WORKS  
-────────────  
-  CUSTOMER FLOW:  
-  1. Customer opens index.php  
-  2. Enters their name, # of adults/children  
-  3. Checks desired items (by category)  
-  4. For items with size (diapers), a size field appears  
-  5. Submits → order saved to database → confirmation shown  
+## FILE STRUCTURE
 
-  EMPLOYEE FLOW:
-  1. Employee opens employee.php  
-  2. Sidebar shows all pending orders (auto-refreshes every 30s)  
-  3. Click an order to open its picklist  
-  4. Click each item to mark it as picked (green check)  
-  5. Once ALL items are picked, "Mark Complete" button activates  
-  6. Click "Mark Complete" → order removed from queue  
+### Root Directory (`/footprints/`)
+* `index.php`: Customer-facing order form.
+* `submit_order.php`: Handles order form POST submission (no UI).
+* `api.php`: JSON API for AJAX calls from dashboards.
+* `db.php`: Database initialization and shared helpers.
+* `Footprint_logo.jpg`: Organization logo (required).
+* `favicon.ico`: Browser tab icon (optional).
+* `picklist.db`: SQLite database (auto-created on first run).
 
-  ADMIN FLOW:  
-  1. Open admin.php  
-  2. Add/remove/toggle items  
-  3. Drag rows to reorder  
-  4. Click "Save All Changes"  
-  5. New orders will immediately use the updated item list  
+### Employee & Admin Folders
+* `/footprints/orders/orders.php`: Employee pick queue dashboard.
+* `/footprints/admin/admin.php`: Administrator configuration panel.
+* `/footprints/admin/report.php`: Item usage reports with charts.
 
-DEFAULT ITEMS  
-─────────────  
-  DAIRY:        Salted Butter, Unsalted Butter, Eggs  
-  DRY GOODS:    Canned Tuna, Canned Chicken, Almond Milk, Kid's Snacks (16 and Under)  
-  FROZEN ITEMS: Ground Beef, Fish Nuggets, Whole Turkey  
-  SPECIALS:     Coffee, Tea  
-  OTHER ITEMS:  Diapers (Child) w/ size, Diapers (Adult) w/ size  
+---
 
-═══════════════════════════════════════════════════════════  
+## SERVER REQUIREMENTS
 
-This web application was originally created for:  
-<p align="center">
-  <img src="https://repository-images.githubusercontent.com/1180328768/30b1f8a5-d5a5-4aa6-975d-faa79e792771" />
-</p>
+* **PHP:** Version 7.2 or higher.
+* **Extensions:** PDO and `pdo_sqlite` must be enabled.
+* **Permissions:** The application folder must be writable by PHP to allow for the creation and updating of `picklist.db`.
+
+---
+
+## INSTALLATION
+
+1.  **Upload:** Transfer all PHP files and images to your web server following the folder structure above.
+2.  **Permissions:** Ensure the directory is writable by the web server.
+3.  **Initialize:** Open `index.php` in your browser. The database and tables are created automatically on the first load.
+4.  **Configure:** Navigate to `admin/admin.php`.
+    * **Default Password:** `admin`
+    * **Action:** Change this password immediately after your first login.
+
+---
+
+## PAGES & FEATURES
+
+### Customer Order Form (`index.php`)
+* **Item Selection:** Grouped by category in a two-column grid using toggle buttons.
+* **Family Factor:** Quantities are determined by family size (Adults/Children).
+    * *Calculation:* `ceil(Family Size * Factor)`. Example: Factor 0.5 for a family of 3 = 2 units.
+* **Translation:** Includes a Google Translate widget supporting 11 languages, including Spanish, Arabic, and Vietnamese.
+
+### Employee Pick Queue (`orders.php`)
+* **Live Dashboard:** Shows pending orders with real-time progress bars.
+* **Interactive Picking:** Toggle items as "picked" with a green checkmark.
+* **Auto-Refresh:** The queue updates every 30 seconds to show new orders.
+
+### Reports (`report.php`)
+* **Anonymity:** Customer names are anonymized as "Client 1, Client 2," etc.
+* **Visuals:** Includes inline quantity bars and bar charts that adjust layouts based on item count.
+
+---
+
+## SECURITY & SETTINGS
+
+* **IP Restriction:** Access to the order form and employee dashboard can be restricted to a specific IP address in the Admin settings.
+* **Authentication:** The admin login persists for 2 months via cookie. Changing the admin password instantly invalidates all existing sessions.
+* **Privacy:** No personal data is exposed in reports, and the system is designed to be self-hosted for maximum data control.
+
+---
+
+## SUPPORT
+
+For issues or questions, contact **Bruce Alexander**.
