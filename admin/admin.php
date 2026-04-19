@@ -258,13 +258,15 @@ if (!isAuthenticated($adminPassword)) {
         <tr>
           <th style="width:30px;"></th>
           <th style="width:40px;">On</th>
+          <th style="width:90px;">Unavailable?</th>
           <th style="width:120px;">Category</th>
           <th style="min-width:160px;">Item Name</th>
-          <th style="width:80px;">Has Size?</th>
-          <th style="width:100px;">Size Label</th>
-          <th style="min-width:160px;">Sizes</th>
+          <th style="width:80px;">Subtype?</th>
+          <th style="width:100px;">Subtype Label</th>
+          <th style="min-width:160px;">Subtype Selections</th>
           <th style="width:90px;">Family Factor</th>
-          <th style="width:90px;">Unavailable?</th>
+          <th style="width:60px;">Adults</th>
+          <th style="width:70px;">Children</th>
           <th style="width:60px;">Remove</th>
         </tr>
       </thead>
@@ -430,6 +432,12 @@ function renderTable() {
           ${item.active=='1'||item.active===1 ? '✅' : '⬜'}
         </span>
       </td>
+      <td style="text-align:center;">
+        <input type="checkbox" title="Check if this item is currently unavailable"
+               ${item.unavailable==1?'checked':''}
+               onchange="items[${i}].unavailable=this.checked?1:0"
+               style="accent-color:#C62828;width:16px;height:16px;">
+      </td>
       <td>
         <select data-row="${i}" data-field="category"
                 onchange="confirmFieldChange(this, ${i}, 'category')"
@@ -459,10 +467,16 @@ function renderTable() {
                style="width:70px;text-align:center;">
       </td>
       <td style="text-align:center;">
-        <input type="checkbox" title="Check if this item is currently unavailable"
-               ${item.unavailable==1?'checked':''}
-               onchange="items[${i}].unavailable=this.checked?1:0"
-               style="accent-color:#C62828;width:16px;height:16px;">
+        <input type="checkbox" title="Use only Adults count in calculation"
+               ${item.use_adults==1?'checked':''}
+               onchange="items[${i}].use_adults=this.checked?1:0"
+               style="accent-color:#6B4C11;width:16px;height:16px;">
+      </td>
+      <td style="text-align:center;">
+        <input type="checkbox" title="Use only Children count in calculation"
+               ${item.use_children==1?'checked':''}
+               onchange="items[${i}].use_children=this.checked?1:0"
+               style="accent-color:#4A90D9;width:16px;height:16px;">
       </td>
       <td>
         <button class="btn btn-red" style="padding:5px 10px;" onclick="removeRow(${i})">✕</button>
@@ -472,7 +486,7 @@ function renderTable() {
 }
 
 function addRow() {
-  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', size_options:'', family_factor:0.10, active:1, unavailable:0, sort_order:items.length, isNew:true });
+  items.push({ category:'DAIRY', item_name:'', has_detail:0, detail_label:'', size_options:'', family_factor:0.10, active:1, unavailable:0, use_adults:0, use_children:0, sort_order:items.length, isNew:true });
   renderTable();
   // Focus the new row name input
   setTimeout(() => {
