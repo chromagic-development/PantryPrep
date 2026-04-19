@@ -19,8 +19,8 @@ if (!isAuthenticated($db)) {
 }
 
 // ── Date range defaults (current week Mon–Fri) ───────────────────────────────
-$defaultStart = date('Y-m-d', strtotime('monday this week'));
-$defaultEnd   = date('Y-m-d', strtotime('friday this week'));
+$defaultStart = date('Y-m-d');
+$defaultEnd   = date('Y-m-d');
 
 $dateStart    = $_GET['date_start'] ?? $defaultStart;
 $dateEnd      = $_GET['date_end']   ?? $defaultEnd;
@@ -68,13 +68,14 @@ $sql = "
     SELECT
         COALESCE(ci.category, oi.category)   AS category,
         COALESCE(ci.item_name, oi.item_name) AS item_name,
+        COALESCE(oi.item_detail, '')          AS item_detail,
         COUNT(*) AS quantity
     FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
     LEFT JOIN config_items ci ON ci.id = oi.config_item_id
     WHERE $where
-    GROUP BY COALESCE(ci.id, oi.item_name)
-    ORDER BY COALESCE(ci.category, oi.category), quantity DESC
+    GROUP BY COALESCE(ci.id, oi.item_name), COALESCE(oi.item_detail, '')
+    ORDER BY COALESCE(ci.category, oi.category), COALESCE(ci.item_name, oi.item_name), COALESCE(oi.item_detail, '')
 ";
 
 $stmt = $db->prepare($sql);
@@ -87,6 +88,19 @@ foreach ($results as $row) {
     $totalByCategory[$row['category']] = ($totalByCategory[$row['category']] ?? 0) + $row['quantity'];
 }
 $grandTotal = array_sum(array_column($results, 'quantity'));
+
+// ── Build rollup totals: items that have 2+ distinct item_detail values ───────
+$itemDetailCounts = []; // item_name => count of distinct non-empty item_detail values
+$itemRollups = [];      // item_name => total quantity across all detail variants
+foreach ($results as $row) {
+    if (!empty($row['item_detail'])) {
+        $key = $row['category'] . '||' . $row['item_name'];
+        $itemDetailCounts[$key] = ($itemDetailCounts[$key] ?? 0) + 1;
+        $itemRollups[$key]      = ($itemRollups[$key] ?? 0) + (int)$row['quantity'];
+    }
+}
+// Keep rollups for any item that has at least one detail variant
+// (rollup shows the total across all detail values for that item)
 
 // ── Also fetch order count for header stat ───────────────────────────────────
 $oSql = "SELECT COUNT(DISTINCT o.id) FROM orders o
@@ -188,6 +202,8 @@ $orderCount = (int)$oStmt->fetchColumn();
   .qty-bar { height:10px; background:var(--green); border-radius:5px; min-width:4px; }
   .qty-num { font-weight:700; color:var(--brown); white-space:nowrap; }
   .total-row td { font-weight:700; background:#F0EBD8; border-top:2px solid var(--border); font-size:.88rem; }
+  .rollup-row td { font-weight:700; background:#EEF5DC; border-top:1px solid #C8DCA0; font-size:.85rem; color:var(--brown); }
+  .rollup-row .qty-num { color:var(--green); }
   .no-data { padding:30px; text-align:center; color:#999; font-size:.9rem; }
 
   /* ── Chart card ──────────────────────────── */
@@ -326,8 +342,14 @@ $orderCount = (int)$oStmt->fetchColumn();
           <?php
           $maxQty = max(array_column($results, 'quantity'));
           $prevCat = null;
-          foreach ($results as $row):
+          $prevItemKey = null;
+          $rollupPrinted = [];
+          foreach ($results as $rowIdx => $row):
             $pct = $maxQty > 0 ? round(($row['quantity'] / $maxQty) * 100) : 0;
+            $itemKey = $row['category'] . '||' . $row['item_name'];
+            // Check if rollup row should be printed before this row (new item group starts)
+            $isLastOfGroup = !isset($results[$rowIdx + 1])
+                || ($results[$rowIdx + 1]['category'] . '||' . $results[$rowIdx + 1]['item_name']) !== $itemKey;
           ?>
           <tr>
             <td>
@@ -337,7 +359,8 @@ $orderCount = (int)$oStmt->fetchColumn();
                 <span style="color:#ccc;font-size:.7rem;">↳</span>
               <?php endif; ?>
             </td>
-            <td><?= htmlspecialchars($row['item_name']) ?></td>
+            <td><?= htmlspecialchars($row['item_name'])
+                . (!empty($row['item_detail']) ? ': ' . htmlspecialchars($row['item_detail']) : '') ?></td>
             <td>
               <div class="qty-bar-wrap">
                 <div class="qty-bar" style="width:<?= $pct ?>px;max-width:80px;"></div>
@@ -345,6 +368,18 @@ $orderCount = (int)$oStmt->fetchColumn();
               </div>
             </td>
           </tr>
+          <?php if ($isLastOfGroup && isset($itemRollups[$itemKey])): ?>
+          <tr class="rollup-row">
+            <td><span style="color:#ccc;font-size:.7rem;">↳</span></td>
+            <td><em><?= htmlspecialchars($row['item_name']) ?>: Total</em></td>
+            <td>
+              <div class="qty-bar-wrap">
+                <div class="qty-bar" style="width:<?= min(80, round(($itemRollups[$itemKey]/$maxQty)*100)) ?>px;max-width:80px;background:var(--green);"></div>
+                <span class="qty-num"><?= $itemRollups[$itemKey] ?></span>
+              </div>
+            </td>
+          </tr>
+          <?php endif; ?>
           <?php endforeach; ?>
         </tbody>
         <tfoot>
@@ -368,18 +403,45 @@ $orderCount = (int)$oStmt->fetchColumn();
 
   <script>
   (function() {
-    var labels   = <?= json_encode(array_map(function($r) { return $r['item_name']; }, $results)) ?>;
-    var values   = <?= json_encode(array_map(function($r) { return (int)$r['quantity']; }, $results)) ?>;
-    var cats     = <?= json_encode(array_map(function($r) { return $r['category']; }, $results)) ?>;
+    <?php
+    // Build chart data including rollup rows
+    $chartLabels = [];
+    $chartValues = [];
+    $chartCats   = [];
+    $chartColors = [];
+    $printedRollups = [];
+    foreach ($results as $ridx => $r) {
+        $rKey = $r['category'] . '||' . $r['item_name'];
+        $chartLabels[] = $r['item_name'] . (!empty($r['item_detail']) ? ': ' . $r['item_detail'] : '');
+        $chartValues[] = (int)$r['quantity'];
+        $chartCats[]   = $r['category'];
+        $chartColors[] = null; // category color
+        // After last row of this item group, inject rollup if applicable
+        $nextKey = isset($results[$ridx+1]) ? ($results[$ridx+1]['category'].'||'.$results[$ridx+1]['item_name']) : '';
+        if ($nextKey !== $rKey && isset($itemRollups[$rKey]) && !isset($printedRollups[$rKey])) {
+            $printedRollups[$rKey] = true;
+            $chartLabels[] = $r['item_name'] . ': Total';
+            $chartValues[] = (int)$itemRollups[$rKey];
+            $chartCats[]   = $r['category'];
+            $chartColors[] = 'rollup'; // distinct color
+        }
+    }
+    ?>
+    var labels   = <?= json_encode($chartLabels) ?>;
+    var values   = <?= json_encode($chartValues) ?>;
+    var cats     = <?= json_encode($chartCats) ?>;
+    var colorHints = <?= json_encode($chartColors) ?>;
 
-    // Assign a consistent color per category
+    // Assign a consistent color per category; rollup bars use a darker shade
     var catColors = {};
     var palette = ['#8BAF3A','#6B4C11','#4A90D9','#E07B39','#9B59B6','#27AE60','#E74C3C','#F39C12'];
     var ci = 0;
     cats.forEach(function(c) {
       if (!catColors[c]) catColors[c] = palette[ci++ % palette.length];
     });
-    var colors = cats.map(function(c) { return catColors[c]; });
+    var colors = cats.map(function(c, idx) {
+      return colorHints[idx] === 'rollup' ? '#444' : catColors[c];
+    });
 
     new Chart(document.getElementById('reportChart'), {
       type: 'bar',
@@ -394,7 +456,7 @@ $orderCount = (int)$oStmt->fetchColumn();
         }]
       },
       options: {
-        indexAxis: <?= count($results) > 8 ? "'y'" : "'x'" ?>,
+        indexAxis: <?= count($chartLabels) > 8 ? "'y'" : "'x'" ?>,
         responsive: true,
         plugins: {
           legend: { display: false },
@@ -409,7 +471,7 @@ $orderCount = (int)$oStmt->fetchColumn();
           x: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, callback: function(v) {
             // When indexAxis='y', x is the value axis — show integers only
             // When indexAxis='x', x is the label axis — show the label string
-            if (<?= count($results) > 8 ? 'true' : 'false' ?>) {
+            if (<?= count($chartLabels) > 8 ? 'true' : 'false' ?>) {
               return Number.isInteger(v) ? v : null;
             }
             return this.getLabelForValue(v);
@@ -417,7 +479,7 @@ $orderCount = (int)$oStmt->fetchColumn();
           y: { grid: { color:'#F0EBD8' }, ticks: { font: { size: 11 }, callback: function(v) {
             // When indexAxis='y', y is the label axis — show the label string
             // When indexAxis='x', y is the value axis — show integers only
-            if (<?= count($results) > 8 ? 'true' : 'false' ?>) {
+            if (<?= count($chartLabels) > 8 ? 'true' : 'false' ?>) {
               return this.getLabelForValue(v);
             }
             return Number.isInteger(v) ? v : null;
