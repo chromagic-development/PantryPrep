@@ -170,11 +170,12 @@ if (!isAuthenticated($adminPassword)) {
   .topbar a { color:#fff; text-decoration:none; background:rgba(255,255,255,.2); padding:7px 14px; border-radius:6px; font-size:.84rem; }
   .topbar a:hover { background:rgba(255,255,255,.35); }
 
-  .container { max-width:1100px; margin:30px auto 60px; padding:0 16px; }
+  .container { max-width:1500px; margin:30px auto 60px; padding:0 16px; }
   h1 { font-size:1.3rem; color:var(--brown); margin-bottom:6px; }
   .subtitle { font-size:.84rem; color:#777; margin-bottom:20px; }
 
-  .card { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .card { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:visible; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .table-scroll { overflow-x:visible; }
   .card-header { padding:14px 20px; background:#F0EBD8; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .card-header h2 { font-size:.9rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--brown); }
 
@@ -253,6 +254,7 @@ if (!isAuthenticated($adminPassword)) {
       <h2>Active Items</h2>
       <button class="btn btn-green" onclick="addRow()">+ Add Item</button>
     </div>
+    <div class="table-scroll">
     <table id="itemsTable">
       <thead>
         <tr>
@@ -263,7 +265,7 @@ if (!isAuthenticated($adminPassword)) {
           <th style="min-width:160px;">Item Name</th>
           <th style="width:80px;">Subtype?</th>
           <th style="width:100px;">Subtype Label</th>
-          <th style="min-width:160px;">Subtype Selections</th>
+          <th style="min-width:320px;">Subtype Selections</th>
           <th style="width:90px;">Family Factor</th>
           <th style="width:60px;">Adults</th>
           <th style="width:70px;">Children</th>
@@ -272,6 +274,7 @@ if (!isAuthenticated($adminPassword)) {
       </thead>
       <tbody id="itemsTbody"></tbody>
     </table>
+    </div>
     <div class="btn-row">
       <button class="btn btn-brown" onclick="saveItems()">💾 Save All Changes</button>
       <span style="font-size:.78rem;color:#999;">Changes are saved to the database immediately</span>
