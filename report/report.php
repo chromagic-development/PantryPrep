@@ -138,7 +138,7 @@ $orderCount = (int)$oStmt->fetchColumn();
   .topbar a:hover { background:rgba(255,255,255,.35); }
 
   /* ── Layout ─────────────────────────────── */
-  .page { max-width:1100px; margin:30px auto 60px; padding:0 16px; }
+  .page { max-width:1500px; margin:30px auto 60px; padding:0 16px; }
   h1 { font-size:1.3rem; color:var(--brown); margin-bottom:4px; }
   .subtitle { font-size:.84rem; color:#777; margin-bottom:22px; }
 
