@@ -175,7 +175,7 @@ if (!isAuthenticated($adminPassword)) {
   .subtitle { font-size:.84rem; color:#777; margin-bottom:20px; }
 
   .card { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:visible; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-  .table-scroll { overflow-x:visible; }
+  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .card-header { padding:14px 20px; background:#F0EBD8; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .card-header h2 { font-size:.9rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--brown); }
 
