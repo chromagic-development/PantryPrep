@@ -234,53 +234,57 @@ if ($visitor_ip !== $allowedIp) {
   }
   .cat-icon { font-size: 1rem; }
 
-  .pick-item {
+.pick-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
+    /* Removed padding/cursor from here so the 'dead zone' doesn't click */
     border-radius: 8px;
     margin-bottom: 6px;
     background: #fff;
     border: 2px solid var(--border);
-    cursor: pointer;
     transition: all .15s;
     user-select: none;
+    padding-right: 14px; /* Keeps the 'x' button away from the right edge */
   }
-  .pick-item:hover { border-color: var(--green); background: #F5FAE8; }
+  
+  /* The new clickable zone for marking items complete */
+  .pick-click-region {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    padding: 10px 14px;
+    cursor: pointer;
+    margin-right: 36px; /* The 36px 'dead zone' to the left of the + button */
+  }
+  .pick-click-region:hover { background: #F5FAE8; border-radius: 6px 0 0 6px; }
+
   .pick-item.picked {
     background: #E8F5E9;
     border-color: var(--done);
     opacity: .75;
   }
-  .pick-checkbox {
-    width: 22px; height: 22px;
-    border: 2px solid #bbb; border-radius: 5px;
-    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; transition: all .15s;
-  }
-  .pick-item.picked .pick-checkbox { background: var(--done); border-color: var(--done); color: #fff; }
-  .pick-item-text { flex: 1; }
-  .pick-item-name { font-size: .92rem; font-weight: 600; }
-  .pick-item-detail { font-size: .78rem; color: #666; margin-top: 2px; }
-  .pick-item.picked .pick-item-name { text-decoration: line-through; color: #aaa; }
-
-  /* ── Remove item button ──────────────────── */
+  
+  /* ── Item Action Buttons ──────────────────── */
   .btn-remove-item {
-    background: transparent; border: none; color: #ccc;
-    font-size: 1rem; cursor: pointer; padding: 2px 6px;
-    border-radius: 4px; flex-shrink: 0; line-height: 1;
-    transition: color .15s, background .15s;
+    background: #f4f4f4; border: 1px solid #d4d4d4; color: #555;
+    font-size: 1rem; cursor: pointer; padding: 6px 12px;
+    border-radius: 6px; flex-shrink: 0; line-height: 1;
+    transition: all .15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   }
-  .btn-remove-item:hover { color: #C62828; background: #FFF0F0; }
+  .btn-remove-item:hover { color: #fff; background: var(--warn); border-color: var(--warn); }
+  
   .btn-duplicate-item {
-    background: transparent; border: none; color: #aaa;
-    font-size: .85rem; cursor: pointer; padding: 2px 6px;
-    border-radius: 4px; flex-shrink: 0; line-height: 1;
-    transition: color .15s, background .15s;
+    background: #f4f4f4; border: 1px solid #d4d4d4; color: #555;
+    font-size: 1rem; cursor: pointer; padding: 6px 12px;
+    border-radius: 6px; flex-shrink: 0; line-height: 1;
+    transition: all .15s;
+    margin-right: 12px; /* Doubles the default 12px flex gap to 24px */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   }
-  .btn-duplicate-item:hover { color: var(--green); background: #F0F8E0; }
-
+  .btn-duplicate-item:hover { color: #fff; background: var(--green); border-color: var(--green); }
+  
   /* ── Notes box ───────────────────────── */
   .notes-box {
     margin: 16px 24px;
@@ -356,7 +360,7 @@ if ($visitor_ip !== $allowedIp) {
 
   <div class="main-panel" id="mainPanel">
     <div class="empty-state" id="emptyState">
-      <div class="big-icon">📦</div>
+      <div class="big-icon">🛒</div>
       <h2>No Order Selected</h2>
       <p>Select an order from the queue to see its picklist, or wait for new orders to arrive.</p>
     </div>
@@ -484,18 +488,29 @@ function selectOrder(id) {
 
 // ── Render the detail panel ─────────────────────────────────────────
 function renderDetail(order) {
-  document.getElementById('emptyState').style.display = 'none';
   const panel = document.getElementById('orderDetail');
   panel.classList.add('visible');
+  document.getElementById('emptyState').style.display = 'none';
 
   const total   = parseInt(order.total_items) || 0;
   const done    = parseInt(order.completed_items) || 0;
   const pct     = total > 0 ? Math.round((done/total)*100) : 0;
   const allDone = total > 0 && done === total;
 
-  // Group items by category
+  // Group items by category (sorted to keep duplicates together)
   const cats = {};
-  (order.items || []).forEach(item => {
+  
+  // 1. Create a copy and sort by Name, then ID
+  const sortedItems = [...(order.items || [])].sort((a, b) => {
+    const nameA = (a.item_name || "").toLowerCase();
+    const nameB = (b.item_name || "").toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return a.id - b.id; // Secondary sort by ID to keep them in creation order
+  });
+
+  // 2. Group the sorted items into categories
+  sortedItems.forEach(item => {
     if (!cats[item.category]) cats[item.category] = [];
     cats[item.category].push(item);
   });
@@ -544,13 +559,16 @@ function renderDetail(order) {
             ${escHtml(cat)}
           </div>
           ${cats[cat].map(item => `
-            <div class="pick-item ${item.completed=='1'?'picked':''}\" id="pi_${item.id}"
-                 onclick="toggleItem(${item.id}, ${order.id})">
-              <div class="pick-checkbox">${item.completed=='1' ? '✓' : ''}</div>
-              <div class="pick-item-text">
-                <div class="pick-item-name">${escHtml(item.item_name)}</div>
-                ${item.item_detail ? `<div class="pick-item-detail">Size/Detail: ${escHtml(item.item_detail)}</div>` : ''}
+            <div class="pick-item ${item.completed=='1'?'picked':''}" id="pi_${item.id}">
+              
+              <div class="pick-click-region" onclick="toggleItem(${item.id}, ${order.id})">
+                <div class="pick-checkbox">${item.completed=='1' ? '✓' : ''}</div>
+                <div class="pick-item-text">
+                  <div class="pick-item-name">${escHtml(item.item_name)}</div>
+                  ${item.item_detail ? `<div class="pick-item-detail"><i>Size/Type:</i> <b>${escHtml(item.item_detail)}</b></div>` : ''}
+                </div>
               </div>
+
               <button class="btn-duplicate-item" title="Duplicate this item in the order"
                       onclick="event.stopPropagation(); duplicateOrderItem(${item.id}, ${order.id}, '${escHtml(item.item_name)}', '${escHtml(item.item_detail||'')}', '${escHtml(item.category||'')}')">＋</button>
               <button class="btn-remove-item" title="Remove this item from the order"
@@ -635,21 +653,25 @@ async function duplicateOrderItem(itemId, orderId, itemName, itemDetail, categor
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
 
-    // Update local order data
+	// Update local order data
     const order = orders.find(o => o.id == orderId);
     if (order) {
       const newItem = { id: data.new_id, category: category, item_name: itemName, item_detail: itemDetail, completed: '0' };
       order.items = order.items || [];
-      // Insert after the source item
+      
+      // Find the index of the original item
       const srcIdx = order.items.findIndex(i => i.id == itemId);
-      if (srcIdx >= 0) order.items.splice(srcIdx + 1, 0, newItem);
-      else order.items.push(newItem);
+      if (srcIdx >= 0) {
+        // Insert directly after the original item
+        order.items.splice(srcIdx + 1, 0, newItem);
+      } else {
+        order.items.push(newItem);
+      }
 
       order.total_items = data.total;
       order.completed_items = data.completed;
 
-      // Re-render detail panel to show new item
-      renderDetail(order);
+      renderDetail(order); // Re-render immediately
       // Re-mark active sidebar card
       document.querySelectorAll('.queue-card').forEach(c => c.classList.remove('active'));
       const card = document.getElementById('qc_' + orderId);
