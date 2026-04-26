@@ -19,6 +19,9 @@ if (!isAuthenticated($db)) {
 }
 
 // ── Date range defaults (current week Mon–Fri) ───────────────────────────────
+// Use New York time so date defaults reflect Eastern Time regardless of server timezone
+date_default_timezone_set('America/New_York');
+
 $defaultStart = date('Y-m-d');
 $defaultEnd   = date('Y-m-d');
 
@@ -26,18 +29,10 @@ $dateStart    = $_GET['date_start'] ?? $defaultStart;
 $dateEnd      = $_GET['date_end']   ?? $defaultEnd;
 
 // ── Load all distinct filter options from DB ─────────────────────────────────
-$allNames      = $db->query("SELECT DISTINCT name FROM orders ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $allCategories = $db->query("SELECT DISTINCT category FROM order_items ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
 $allItems      = $db->query("SELECT DISTINCT item_name FROM config_items WHERE active = 1 ORDER BY item_name")->fetchAll(PDO::FETCH_COLUMN);
 
-// ── Build anonymized name map: real name => "Client N" ───────────────────────
-$nameMap = [];
-foreach (array_values($allNames) as $idx => $realName) {
-    $nameMap[$realName] = 'Client ' . ($idx + 1);
-}
-
 // ── Selected filters (arrays from multi-select) ───────────────────────────────
-$selNames  = $_GET['names']      ?? [];
 $selCats   = $_GET['categories'] ?? [];
 $selItems  = $_GET['items']      ?? [];
 
@@ -45,11 +40,6 @@ $selItems  = $_GET['items']      ?? [];
 $conditions = ["DATE(o.created_at) BETWEEN :ds AND :de"];
 $params     = [':ds' => $dateStart, ':de' => $dateEnd];
 
-if (!empty($selNames)) {
-    $placeholders = implode(',', array_map(function($i) { return ":n$i"; }, array_keys($selNames)));
-    $conditions[] = "o.name IN ($placeholders)";
-    foreach ($selNames as $i => $v) $params[":n$i"] = $v;
-}
 if (!empty($selCats)) {
     $placeholders = implode(',', array_map(function($i) { return ":c$i"; }, array_keys($selCats)));
     $conditions[] = "oi.category IN ($placeholders)";
@@ -151,7 +141,7 @@ $orderCount = (int)$oStmt->fetchColumn();
     padding:12px 20px; background:#F0EBD8; border-bottom:1px solid var(--border);
     font-size:.9rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--brown);
   }
-  .filter-body { padding:20px; display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:16px; align-items:start; }
+  .filter-body { padding:20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; align-items:start; }
   .filter-group label { display:block; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--brown); margin-bottom:6px; }
   .filter-group input[type="date"] {
     width:100%; border:1px solid var(--border); border-radius:6px;
@@ -228,6 +218,7 @@ $orderCount = (int)$oStmt->fetchColumn();
   <nav>
 	<a href="../orders/">← Orders</a>
     <a href="../admin/">⚙ Manage Items</a>
+    <a href="../report/volume/">📅 Daily Volume</a>
     <a href="../admin/?logout=1">🔒 Log Out</a>
   </nav>
 </div>
@@ -250,18 +241,6 @@ $orderCount = (int)$oStmt->fetchColumn();
       <div class="filter-group">
         <label for="date_end">End Date</label>
         <input type="date" id="date_end" name="date_end" value="<?= htmlspecialchars($dateEnd) ?>">
-      </div>
-
-      <div class="filter-group">
-        <label>Client</label>
-        <select name="names[]" multiple id="sel_names">
-          <?php foreach ($allNames as $n): ?>
-            <option value="<?= htmlspecialchars($n) ?>" <?= in_array($n, $selNames) ? 'selected' : '' ?>>
-              <?= htmlspecialchars($nameMap[$n] ?? $n) ?>
-            </option>
-          <?php endforeach; ?>
-        </select>
-        <div class="filter-hint">Ctrl/Cmd+click to select multiple. Leave blank for all.</div>
       </div>
 
       <div class="filter-group" style="display:grid;grid-template-rows:auto 1fr auto 1fr;gap:8px;">
