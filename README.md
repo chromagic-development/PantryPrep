@@ -16,7 +16,7 @@ This is a web-based food pantry order management system.
 
 ## FILE STRUCTURE
 
-### Root Directory (`/footprints/`)
+### Root Directory (`/pantryprep/`)
 * `index.php`: Customer-facing order form.
 * `submit_order.php`: Handles order form POST submission (no UI).
 * `api.php`: JSON API for AJAX calls from dashboards.
