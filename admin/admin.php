@@ -241,7 +241,7 @@ if (!isAuthenticated($adminPassword)) {
     <a href="../orders">← Orders</a>
     <a href="../" target="_blank" rel="noopener noreferrer">📋 Order Form</a>
 	<a href="../report/">📊 Report</a>
-    <a href="admin.php?logout=1" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);">🔒 Log Out</a>
+    <a href="../admin?logout=1" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);">🔒 Log Out</a>
   </div>
 </div>
 
@@ -253,6 +253,7 @@ if (!isAuthenticated($adminPassword)) {
     <div class="card-header">
       <h2>Active Items</h2>
       <button class="btn btn-green" onclick="addRow()">+ Add Item</button>
+      <button class="btn btn-brown" onclick="saveItems()" style="margin-left:10px;">💾 Save All Changes</button>
     </div>
     <div class="table-scroll">
     <table id="itemsTable">
