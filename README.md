@@ -21,14 +21,14 @@ This is a web-based food pantry order management system.
 * `submit_order.php`: Handles order form POST submission (no UI).
 * `api.php`: JSON API for AJAX calls from dashboards.
 * `db.php`: Database initialization and shared helpers.
-* `Footprint_logo.jpg`: Organization logo (required).
+* `Footprint_logo.jpg`: Replace with your organization logo (required).
 * `favicon.ico`: Browser tab icon (optional).
 * `picklist.db`: SQLite database (auto-created on first run).
 
 ### Employee & Admin Folders
-* `/footprints/orders/orders.php`: Employee pick queue dashboard.
-* `/footprints/admin/admin.php`: Administrator configuration panel.
-* `/footprints/admin/report.php`: Item usage reports with charts.
+* `/pantryprep/orders/orders.php`: Employee pick queue dashboard.
+* `/pantryprep/admin/admin.php`: Administrator configuration panel.
+* `/pantryprep/admin/report.php`: Item usage reports with charts.
 
 ---
 
