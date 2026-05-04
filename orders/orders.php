@@ -217,7 +217,7 @@ if ($visitor_ip !== $allowedIp) {
   .prog-count { font-size: .82rem; color: #555; white-space: nowrap; }
 
   /* ── Item list ───────────────────────── */
-  .items-container { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .items-container { flex: 1; overflow-y: auto; padding: 20px 24px 120px; }
   .cat-section { margin-bottom: 24px; }
   .cat-title {
     font-size: .8rem;
