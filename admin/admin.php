@@ -176,8 +176,16 @@ if (!isAuthenticated($adminPassword)) {
 
   .card { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:visible; box-shadow:0 2px 8px rgba(0,0,0,.06); }
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .card-header { padding:14px 20px; background:#F0EBD8; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .card-header { padding:14px 20px; background:#F0EBD8; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
   .card-header h2 { font-size:.9rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--brown); }
+  .item-search {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font-size: .85rem; font-family: inherit;
+    background: #fff; color: #333; outline: none;
+    width: 220px;
+  }
+  .item-search:focus { border-color: var(--green); }
+  .item-search::placeholder { color: #bbb; }
 
   #itemsTable { width:100%; border-collapse:collapse; }
   #itemsTable th { text-align:left; padding:9px 12px; font-size:.75rem; text-transform:uppercase; letter-spacing:.5px; background:#F5F0E8; color:var(--brown); border-bottom:1px solid var(--border); }
@@ -252,8 +260,13 @@ if (!isAuthenticated($adminPassword)) {
   <div class="card">
     <div class="card-header">
       <h2>Active Items</h2>
-      <button class="btn btn-green" onclick="addRow()">+ Add Item</button>
-      <button class="btn btn-brown" onclick="saveItems()" style="margin-left:10px;">💾 Save All Changes</button>
+      <input type="text" class="item-search" id="itemSearch"
+             placeholder="🔍 Filter by item name…"
+             oninput="filterItems(this.value)">
+      <div style="display:flex;gap:10px;margin-left:auto;">
+        <button class="btn btn-green" onclick="addRow()">+ Add Item</button>
+        <button class="btn btn-brown" onclick="saveItems()">💾 Save All Changes</button>
+      </div>
     </div>
     <div class="table-scroll">
     <table id="itemsTable">
@@ -428,6 +441,7 @@ function renderTable() {
   const tbody = document.getElementById('itemsTbody');
   tbody.innerHTML = items.map((item, i) => `
     <tr id="row_${i}" draggable="true"
+        data-item-name="${escHtml((item.item_name||'').toLowerCase())}"
         ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
         ondrop="dragDrop(event,${i})" ondragend="dragEnd(event)">
       <td><span class="drag-handle" title="Drag to reorder">⠿</span></td>
@@ -487,6 +501,22 @@ function renderTable() {
       </td>
     </tr>
   `).join('');
+
+  // Re-apply active search filter after render (only if user has typed something)
+  var searchEl = document.getElementById('itemSearch');
+  if (searchEl && searchEl.value.trim()) filterItems(searchEl.value);
+}
+
+function filterItems(term) {
+  var q = term.trim().toLowerCase();
+  document.querySelectorAll('#itemsTbody tr').forEach(function(row) {
+    if (!q) {
+      row.style.display = '';
+    } else {
+      var name = row.getAttribute('data-item-name') || '';
+      row.style.display = name.includes(q) ? '' : 'none';
+    }
+  });
 }
 
 function addRow() {
