@@ -11,6 +11,7 @@ This is a web-based food pantry order management system.
 * **Staff Workflow:** Staff pick items from a live queue dashboard.
 * **Administration:** Administrators configure available items and view usage reports.
 * **Database:** The application is self-contained and requires no external database server—it uses SQLite, which stores all data in a single local file (`picklist.db`).
+* **Reports:** Item Usage and Daily Order & Item Volume with charts
 
 ---
 
