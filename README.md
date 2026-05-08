@@ -63,7 +63,7 @@ This is a web-based food pantry order management system.
 ### Employee Pick Queue (`orders.php`)
 * **Live Dashboard:** Shows pending orders with real-time progress bars.
 * **Interactive Picking:** Toggle items as "picked" with a green checkmark.
-* **Auto-Refresh:** The queue updates every 30 seconds to show new orders.
+* **Auto-Refresh:** The queue updates every 5 seconds to show new orders.
 
 ### Reports (`report.php`)
 * **Anonymity:** Customer names are anonymized as "Client 1, Client 2," etc.
