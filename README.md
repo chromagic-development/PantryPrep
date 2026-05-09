@@ -7,7 +7,7 @@ Created by **Bruce Alexander**
 ## OVERVIEW
 
 This is a web-based food pantry order management system.
-* **Customer Interaction:** Customers submit orders through an online form.
+* **Client Interaction:** Clients submit orders through an online form.
 * **Staff Workflow:** Staff pick items from a live queue dashboard.
 * **Administration:** Administrators configure available items and view usage reports.
 * **Database:** The application is self-contained and requires no external database server—it uses SQLite, which stores all data in a single local file (`picklist.db`).
@@ -18,7 +18,7 @@ This is a web-based food pantry order management system.
 ## FILE STRUCTURE
 
 ### Root Directory (`/pantryprep/`)
-* `index.php`: Customer-facing order form.
+* `index.php`: Client-facing order form.
 * `submit_order.php`: Handles order form POST submission (no UI).
 * `api.php`: JSON API for AJAX calls from dashboards.
 * `db.php`: Database initialization and shared helpers.
@@ -54,7 +54,7 @@ This is a web-based food pantry order management system.
 
 ## PAGES & FEATURES
 
-### Customer Order Form (`index.php`)
+### Client Order Form (`index.php`)
 * **Item Selection:** Grouped by category in a two-column grid using toggle buttons.
 * **Family Factor:** Quantities are determined by family size (Adults/Children).
     * *Calculation:* `ceil(Family Size * Factor)`. Example: Factor 0.5 for a family of 3 = 2 units.
@@ -66,7 +66,7 @@ This is a web-based food pantry order management system.
 * **Auto-Refresh:** The queue updates every 5 seconds to show new orders.
 
 ### Reports (`report.php`)
-* **Anonymity:** Customer names are anonymized as "Client 1, Client 2," etc.
+* **Anonymity:** Client names are anonymized as "Client 1, Client 2," etc.
 * **Visuals:** Includes inline quantity bars and bar charts that adjust layouts based on item count.
 
 ---
